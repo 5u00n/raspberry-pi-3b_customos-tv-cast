@@ -17,17 +17,21 @@ A custom Raspberry Pi OS for Raspberry Pi 3B with auto-login, GUI, AirPlay, Goog
 ## Repository Structure
 
 ### Core Files
+
 - `install.sh`: One-line installer script for GitHub installation
 - `setup-from-github.sh`: Main setup script that configures the system
 - `firstrun.sh`: First-boot setup script that runs automatically
 - `README.md`: This file with installation and usage instructions
+- `PROJECT_STRUCTURE.md`: Detailed project organization and file reference guide
 
 ### Configuration
+
 - `configs/`: Configuration files including WiFi credentials and system settings
 - `overlays/`: System overlay files to be applied to the base OS
 - `packages/`: Package lists and dependencies
 
 ### Scripts
+
 - `scripts/build/`: Build and compilation scripts
   - Build system images, Docker containers, etc.
 - `scripts/test/`: Testing and verification scripts
@@ -36,10 +40,12 @@ A custom Raspberry Pi OS for Raspberry Pi 3B with auto-login, GUI, AirPlay, Goog
   - SD card preparation, Git setup, etc.
 
 ### Documentation
+
 - `docs/`: Comprehensive documentation and guides
   - Installation guides, troubleshooting, hardware testing, etc.
 
 ### Development
+
 - `docker/`: Docker-related files for containerized builds
 - `qemu/`: QEMU emulation files and kernels for testing
 - `kernel/`: Kernel files and modules
