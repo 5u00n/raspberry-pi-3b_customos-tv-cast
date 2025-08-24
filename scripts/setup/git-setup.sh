@@ -49,7 +49,7 @@ mkdir -p scripts
 log "Adding files to Git..."
 git add .gitignore
 git add README.md
-git add FINAL_INSTRUCTIONS.md
+git add docs/FINAL_INSTRUCTIONS.md
 git add firstrun.sh
 git add setup-from-github.sh
 git add install.sh

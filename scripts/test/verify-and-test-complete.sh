@@ -309,11 +309,11 @@ show_deployment_options() {
     echo
     
     feature "🧪 Option 3: Test in QEMU"
-    info "   ./test-in-qemu.sh"
+    info "   ./scripts/test/test-in-qemu.sh"
     echo
     
     feature "🔧 Option 4: Fresh Build"
-    info "   ./build-complete-image.sh"
+    info "   ./scripts/build/build-complete-image.sh"
     echo
 }
 

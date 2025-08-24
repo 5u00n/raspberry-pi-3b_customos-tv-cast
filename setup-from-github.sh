@@ -117,7 +117,7 @@ cat "$CMDLINE_PATH"
 
 # Copy final instructions
 log "Copying final instructions..."
-cp FINAL_INSTRUCTIONS.md /boot/
+cp docs/FINAL_INSTRUCTIONS.md /boot/
 
 # Cleanup
 log "Cleaning up..."

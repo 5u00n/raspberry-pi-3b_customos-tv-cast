@@ -157,10 +157,10 @@ main() {
     if [ -f "$OUTPUT_DIR/raspberry-pi-os.img" ] || [ -f "$OUTPUT_DIR/customized-pi-os.img" ]; then
         log "Ready to flash SD card or test in QEMU"
         echo
-        info "To test in QEMU, run: ./test-in-qemu.sh"
-        info "To build fresh image, run: ./build-complete-image.sh"
+        info "To test in QEMU, run: ./scripts/test/test-in-qemu.sh"
+        info "To build fresh image, run: ./scripts/build/build-complete-image.sh"
     else
-        warn "No built images found. Run ./build-complete-image.sh first"
+        warn "No built images found. Run ./scripts/build/build-complete-image.sh first"
     fi
     
     echo

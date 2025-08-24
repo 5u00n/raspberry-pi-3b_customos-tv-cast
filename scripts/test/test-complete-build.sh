@@ -249,7 +249,7 @@ main() {
     echo
     
     info "Next steps:"
-    echo "  1. Test in QEMU: ./test-in-qemu.sh"
+    echo "  1. Test in QEMU: ./scripts/test/test-in-qemu.sh"
     echo "  2. Flash to SD: dd if=output/raspberry-pi-os.img of=/dev/diskX bs=1m"
     echo "  3. Use Raspberry Pi Imager with the .img file"
 }
