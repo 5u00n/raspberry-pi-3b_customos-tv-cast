@@ -66,10 +66,10 @@ git commit -m "Initial commit of Raspberry Pi 3B Custom OS"
 # Set up remote
 log "Setting up remote..."
 git branch -M main
-git remote add origin "https://github.com/$GITHUB_USERNAME/my_rasp_OS.git"
+git remote add origin "https://github.com/$GITHUB_USERNAME/raspberry-pi-3b_customos-tv-cast.git"
 
 # Instructions for pushing
 log "✅ Git repository set up successfully!"
 log "To push to GitHub, run:"
 echo -e "${YELLOW}git push -u origin main${NC}"
-log "Make sure you've created the repository at: https://github.com/$GITHUB_USERNAME/my_rasp_OS"
+log "Make sure you've created the repository at: https://github.com/$GITHUB_USERNAME/raspberry-pi-3b_customos-tv-cast"

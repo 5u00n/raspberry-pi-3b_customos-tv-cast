@@ -30,7 +30,7 @@ sudo systemctl enable docker
 ```bash
 # Clone and setup
 git clone <repo-url>
-cd my_rasp_OS
+cd raspberry-pi-3b_customos-tv-cast
 
 # Run build script
 ./scripts/build.sh

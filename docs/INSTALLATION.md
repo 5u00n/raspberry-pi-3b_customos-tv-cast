@@ -24,7 +24,7 @@
 
 ```bash
 git clone <your-repo-url>
-cd my_rasp_OS
+cd raspberry-pi-3b_customos-tv-cast
 ```
 
 ### 2. Build the OS Image

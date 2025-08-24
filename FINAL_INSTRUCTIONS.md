@@ -111,11 +111,11 @@ All setup and boot processes are logged to:
 
 All files and scripts for this custom OS are available on GitHub:
 
-- Repository URL: https://github.com/5u00n/my_rasp_OS
+- Repository URL: https://github.com/5u00n/raspberry-pi-3b_customos-tv-cast
 - You can clone this repository to set up the system on another Raspberry Pi
 - One-line installation command:
   ```
-  curl -L https://raw.githubusercontent.com/5u00n/my_rasp_OS/main/install.sh | sudo bash
+  curl -L https://raw.githubusercontent.com/5u00n/raspberry-pi-3b_customos-tv-cast/main/install.sh | sudo bash
   ```
 
 ### Setting Up from GitHub
@@ -126,7 +126,7 @@ To set up this system on another Raspberry Pi:
 2. Connect to the internet
 3. Run the one-line installer:
    ```
-   curl -L https://raw.githubusercontent.com/5u00n/my_rasp_OS/main/install.sh | sudo bash
+   curl -L https://raw.githubusercontent.com/5u00n/raspberry-pi-3b_customos-tv-cast/main/install.sh | sudo bash
    ```
 4. Follow the prompts to enter your WiFi credentials
 5. Reboot when prompted

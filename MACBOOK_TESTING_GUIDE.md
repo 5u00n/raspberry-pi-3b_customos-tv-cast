@@ -20,7 +20,7 @@ Your Raspberry Pi 3B OS now has a **REAL Linux GUI application** (not HTML!) tha
 
 ```bash
 # Make sure you're in your project directory
-cd /Users/suren/Documents/GitProjects/my_rasp_OS
+cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
 
 # Run the automated testing script
 ./test-raspberry-pi-macos.sh
@@ -47,7 +47,7 @@ curl -L -o versatile-pb-buster.dtb https://github.com/dhruvvyas90/qemu-rpi-kerne
 
 ```bash
 # Navigate to your project directory
-cd /Users/suren/Documents/GitProjects/my_rasp_OS
+cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
 
 # Test the image with QEMU (macOS compatible)
 qemu-system-arm \
@@ -308,7 +308,7 @@ journalctl -u desktop-ui.service -f
 **Quick Start Testing:**
 
 ```bash
-cd /Users/suren/Documents/GitProjects/my_rasp_OS
+cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
 ./test-raspberry-pi-macos.sh
 ```
 

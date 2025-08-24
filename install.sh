@@ -1,6 +1,6 @@
 #!/bin/bash
 # One-line installer for Raspberry Pi 3B Custom OS
-# Usage: curl -L https://raw.githubusercontent.com/5u00n/my_rasp_OS/main/install.sh | sudo bash
+# Usage: curl -L https://raw.githubusercontent.com/5u00n/raspberry-pi-3b_customos-tv-cast/main/install.sh | sudo bash
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -20,11 +20,11 @@ error() {
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
-    error "This script must be run as root. Try 'curl -L https://raw.githubusercontent.com/5u00n/my_rasp_OS/main/install.sh | sudo bash'"
+    error "This script must be run as root. Try 'curl -L https://raw.githubusercontent.com/5u00n/raspberry-pi-3b_customos-tv-cast/main/install.sh | sudo bash'"
 fi
 
 log "Downloading setup script from GitHub..."
-curl -L -o /tmp/setup-from-github.sh https://raw.githubusercontent.com/5u00n/my_rasp_OS/main/setup-from-github.sh
+curl -L -o /tmp/setup-from-github.sh https://raw.githubusercontent.com/5u00n/raspberry-pi-3b_customos-tv-cast/main/setup-from-github.sh
 
 log "Making script executable..."
 chmod +x /tmp/setup-from-github.sh

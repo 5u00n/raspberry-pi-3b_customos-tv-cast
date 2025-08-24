@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # GitHub repository URL
-REPO_URL="https://github.com/5u00n/my_rasp_OS.git"
+REPO_URL="https://github.com/5u00n/raspberry-pi-3b_customos-tv-cast.git"
 
 # Log function
 log() {
@@ -39,7 +39,7 @@ apt-get update
 apt-get install -y git rsync
 
 # Create working directory
-WORK_DIR="/tmp/my_rasp_os_setup"
+WORK_DIR="/tmp/raspberry_pi_3b_customos_tv_cast_setup"
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
 

@@ -235,7 +235,7 @@ ifconfig wlan0
 ### **Step 1: Run QEMU Test**
 
 ```bash
-cd /Users/suren/Documents/GitProjects/my_rasp_OS
+cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
 ./test-raspberry-pi-macos.sh
 ```
 
