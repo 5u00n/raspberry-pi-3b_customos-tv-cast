@@ -16,11 +16,35 @@ A custom Raspberry Pi OS for Raspberry Pi 3B with auto-login, GUI, AirPlay, Goog
 
 ## Repository Structure
 
-- `overlays/`: Contains all overlay files to be applied to the base OS
-- `configs/`: Configuration files including WiFi credentials
-- `scripts/`: Helper scripts for building and configuring the OS
-- `firstrun.sh`: First-boot setup script
-- `setup-from-github.sh`: Script to set up the system from this repository
+### Core Files
+- `install.sh`: One-line installer script for GitHub installation
+- `setup-from-github.sh`: Main setup script that configures the system
+- `firstrun.sh`: First-boot setup script that runs automatically
+- `README.md`: This file with installation and usage instructions
+
+### Configuration
+- `configs/`: Configuration files including WiFi credentials and system settings
+- `overlays/`: System overlay files to be applied to the base OS
+- `packages/`: Package lists and dependencies
+
+### Scripts
+- `scripts/build/`: Build and compilation scripts
+  - Build system images, Docker containers, etc.
+- `scripts/test/`: Testing and verification scripts
+  - QEMU testing, hardware validation, etc.
+- `scripts/setup/`: Setup and configuration scripts
+  - SD card preparation, Git setup, etc.
+
+### Documentation
+- `docs/`: Comprehensive documentation and guides
+  - Installation guides, troubleshooting, hardware testing, etc.
+
+### Development
+- `docker/`: Docker-related files for containerized builds
+- `qemu/`: QEMU emulation files and kernels for testing
+- `kernel/`: Kernel files and modules
+- `build/`: Build artifacts and temporary files
+- `output/`: Generated images and final outputs
 
 ## Quick Start - GitHub Installation
 
@@ -137,7 +161,7 @@ cd raspberry-pi-3b_customos-tv-cast
 3. Run the SD card setup script:
 
 ```bash
-sudo ./fix-sd-card.sh
+sudo ./scripts/setup/fix-sd-card.sh
 ```
 
 4. Follow the prompts to select your SD card
@@ -188,7 +212,16 @@ After running any of the installation methods above:
 
 ## Troubleshooting
 
-See `FINAL_INSTRUCTIONS.md` for detailed troubleshooting information.
+See `docs/TROUBLESHOOTING_GUIDE.md` for detailed troubleshooting information.
+
+## Documentation
+
+- `docs/FINAL_INSTRUCTIONS.md`: Complete setup and usage instructions
+- `docs/MACBOOK_TESTING_GUIDE.md`: Guide for testing on macOS with QEMU
+- `docs/REAL_HARDWARE_GUIDE.md`: Guide for testing on actual Raspberry Pi hardware
+- `docs/WIFI_SETUP_INSTRUCTIONS.md`: Detailed WiFi configuration instructions
+- `docs/AUTO_LOGIN_GOOGLE_CAST_FEATURES.md`: Feature documentation
+- `docs/GITHUB_SETUP_STEPS.md`: GitHub repository setup guide
 
 ## Contributing
 
