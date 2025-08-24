@@ -23,7 +23,7 @@ Your Raspberry Pi 3B OS now has a **REAL Linux GUI application** (not HTML!) tha
 cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
 
 # Run the automated testing script
-./test-raspberry-pi-macos.sh
+./scripts/test/test-raspberry-pi-macos.sh
 ```
 
 ### **Option 2: Manual QEMU Setup**
@@ -309,7 +309,7 @@ journalctl -u desktop-ui.service -f
 
 ```bash
 cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
-./test-raspberry-pi-macos.sh
+./scripts/test/test-raspberry-pi-macos.sh
 ```
 
 Test it on your MacBook first, then flash to your Pi for the ultimate plug-and-play experience!

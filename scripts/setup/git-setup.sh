@@ -53,7 +53,7 @@ git add FINAL_INSTRUCTIONS.md
 git add firstrun.sh
 git add setup-from-github.sh
 git add install.sh
-git add fix-sd-card.sh
+git add scripts/setup/fix-sd-card.sh
 git add git-setup.sh
 git add overlays/
 git add configs/

@@ -236,7 +236,7 @@ ifconfig wlan0
 
 ```bash
 cd /Users/suren/Documents/GitProjects/raspberry-pi-3b_customos-tv-cast
-./test-raspberry-pi-macos.sh
+./scripts/test/test-raspberry-pi-macos.sh
 ```
 
 ### **Step 2: Monitor Boot Process**

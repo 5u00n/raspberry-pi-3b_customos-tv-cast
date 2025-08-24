@@ -16,6 +16,8 @@ A custom Raspberry Pi OS for Raspberry Pi 3B with auto-login, GUI, AirPlay, Goog
 
 ## Repository Structure
 
+> **Note**: The project has been reorganized for better maintainability. Scripts are now organized in `scripts/` subdirectories, documentation is in `docs/`, and core installation files remain in the root directory. See `PROJECT_STRUCTURE.md` for complete details.
+
 ### Core Files
 
 - `install.sh`: One-line installer script for GitHub installation
