@@ -1,0 +1,6 @@
+[Unit]
+Description=Raspberry Pi 3B Setup Target
+Documentation=man:systemd.special(7)
+Requires=setup.service
+After=setup.service
+AllowIsolate=yes

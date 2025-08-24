@@ -1,0 +1,17 @@
+[Unit]
+Description=Console Auto-Login Service
+After=getty@tty1.service
+Wants=getty@tty1.service
+
+[Service]
+Type=oneshot
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+WorkingDirectory=/home/pi
+ExecStart=/usr/local/bin/console-autologin.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=getty.target

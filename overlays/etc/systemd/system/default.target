@@ -1,0 +1,3 @@
+# This file ensures the system boots to graphical mode
+# It's a symbolic link to graphical.target
+graphical.target

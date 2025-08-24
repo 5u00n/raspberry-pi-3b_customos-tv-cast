@@ -1,0 +1,15 @@
+[Unit]
+Description=Auto-login Service for Pi User
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=oneshot
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/bin/bash -c 'echo "Auto-login configured for user pi"'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target

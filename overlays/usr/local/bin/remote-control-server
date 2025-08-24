@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+# Simple remote control server
+# This is a placeholder - in a real implementation, you would use Flask
+
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("remote-control")
+
+logger.info("Starting remote control server")
+
+# In a real implementation, this would start a web server
+logger.info("Initializing remote control server on port 8080")
+
+# Main loop
+while True:
+    logger.info("Remote control server running")
+    time.sleep(60)  # Just keep the service running

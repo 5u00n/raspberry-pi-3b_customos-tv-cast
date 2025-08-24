@@ -1,0 +1,12 @@
+[Unit]
+Description=Remote Control Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/remote-control-server
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

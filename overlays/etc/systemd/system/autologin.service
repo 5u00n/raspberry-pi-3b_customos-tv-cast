@@ -1,0 +1,17 @@
+[Unit]
+Description=Force Auto-Login and Start All Services
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=oneshot
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+WorkingDirectory=/home/pi
+ExecStart=/usr/local/bin/force-autologin.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target

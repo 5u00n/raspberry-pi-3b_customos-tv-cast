@@ -1,0 +1,17 @@
+[Unit]
+Description=Auto-login for pi user on tty1
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+WorkingDirectory=/home/pi
+ExecStart=/bin/bash -c 'echo "Auto-login successful for pi user"; /usr/local/bin/start-desktop-gui.sh'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target

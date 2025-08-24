@@ -1,0 +1,76 @@
+# Essential packages
+apt-utils
+sudo
+systemd
+bash
+nano
+vim
+curl
+wget
+rsync
+git
+
+# Desktop environment
+xserver-xorg
+lxde
+lightdm
+openbox
+python3-tk
+python3-psutil
+
+# Networking
+network-manager
+wireless-tools
+wpasupplicant
+hostapd
+dnsmasq
+ufw
+avahi-daemon
+net-tools
+iproute2
+iw
+iputils-ping
+
+# Media packages
+ffmpeg
+vlc
+omxplayer
+alsa-utils
+pulseaudio
+
+# AirPlay
+shairport-sync
+libao-dev
+libssl-dev
+libavahi-client-dev
+libasound2-dev
+
+# File servers
+samba
+vsftpd
+
+# WiFi security tools
+aircrack-ng
+wifite
+macchanger
+
+# Python packages
+python3
+python3-pip
+python3-dev
+python3-websockets
+python3-requests
+python3-flask
+python3-flask-cors
+python3-psutil
+python3-tk
+python3-pil
+python3-numpy
+
+# System utilities
+htop
+iotop
+lsof
+procps
+psmisc
+policykit-1

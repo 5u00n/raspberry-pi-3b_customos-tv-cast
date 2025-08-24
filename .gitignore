@@ -1,0 +1,75 @@
+# Raspberry Pi OS Custom Project .gitignore
+
+# Build and output directories
+/build/
+/output/
+/tmp/
+/temp/
+
+# Image files (too large for GitHub)
+*.img
+*.img.xz
+*.iso
+*.bin
+*.zip
+*.tar.gz
+*.tgz
+
+# QEMU files
+/qemu_files/kernel-qemu*
+/qemu_files/*.dtb
+
+# macOS specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Keep these files
+!overlays/
+!configs/
+!scripts/
+!*.sh
+!*.md
+!LICENSE

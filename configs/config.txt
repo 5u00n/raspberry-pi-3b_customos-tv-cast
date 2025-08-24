@@ -1,0 +1,56 @@
+# Custom Raspberry Pi 3B Configuration
+# Optimized for wireless display and performance
+
+# GPU and Memory
+gpu_mem=128
+gpu_mem_256=128
+gpu_mem_512=128
+
+# CPU and Performance
+arm_freq=1200
+over_voltage=2
+temp_limit=80
+
+# HDMI and Display
+hdmi_force_hotplug=1
+hdmi_group=1
+hdmi_mode=4
+hdmi_drive=2
+hdmi_ignore_cec_init=1
+
+# Audio
+dtparam=audio=on
+audio_pwm_mode=2
+
+# WiFi and Bluetooth
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+
+# Enable WiFi and Bluetooth (remove the above lines if you want them enabled)
+# dtoverlay=pi3-disable-wifi
+# dtoverlay=pi3-disable-bt
+
+# USB and Power
+max_usb_current=1
+usb_max_current_enable=1
+
+# GPIO and I2C
+dtparam=i2c_arm=on
+dtparam=spi=on
+
+# Camera (if needed)
+# start_x=1
+# gpu_mem=128
+
+# Custom boot options
+boot_delay=1
+disable_splash=1
+
+# Enable SSH
+enable_ssh=1
+
+# Overclock settings (use with caution)
+# arm_freq=1400
+# over_voltage=4
+# sdram_freq=500
+# core_freq=500

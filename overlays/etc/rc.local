@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# rc.local script for Raspberry Pi 3B Custom OS
+# This runs on every boot to ensure proper configuration
+
+# Log file
+LOG_FILE="/var/log/rc-local.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "🍓 rc.local: Starting Raspberry Pi 3B configuration..."
+
+# Check if this is first boot
+if [ ! -f "/etc/setup-complete" ]; then
+    log "First boot detected, running setup..."
+    
+    # Wait for system to be ready
+    sleep 15
+    
+    # Run first boot setup
+    if [ -f "/usr/local/bin/first-boot-setup.sh" ]; then
+        log "Executing first-boot setup script..."
+        chmod +x /usr/local/bin/first-boot-setup.sh
+        /usr/local/bin/first-boot-setup.sh
+    else
+        log "First-boot setup script not found, running basic configuration..."
+        
+        # Basic configuration
+        log "Configuring auto-login..."
+        mkdir -p /etc/systemd/system/getty@tty1.service.d/
+        cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin pi --noclear %I $TERM
+Type=idle
+EOF
+        
+        log "Configuring desktop auto-login..."
+        mkdir -p /etc/lightdm
+        cat > /etc/lightdm/lightdm.conf << 'EOF'
+[SeatDefaults]
+autologin-user=pi
+autologin-user-timeout=0
+autologin-session=openbox
+user-session=openbox
+autologin-guest=false
+EOF
+        
+        log "Setting default target to graphical..."
+        systemctl set-default graphical.target
+        
+        log "Marking setup as complete..."
+        echo "$(date): Basic setup completed via rc.local" > /etc/setup-complete
+        
+        log "Rebooting to apply changes..."
+        sleep 5
+        reboot
+    fi
+else
+    log "Setup already completed, ensuring services are running..."
+    
+    # Ensure desktop GUI service is running
+    if ! systemctl is-active --quiet desktop-ui.service; then
+        log "Starting desktop GUI service..."
+        systemctl start desktop-ui.service
+    fi
+    
+    # Ensure other services are running
+    services=("airplay.service" "google-cast.service" "wifi-tools.service" "remote-control.service")
+    for service in "${services[@]}"; do
+        if ! systemctl is-active --quiet "$service"; then
+            log "Starting $service..."
+            systemctl start "$service"
+        fi
+    done
+fi
+
+log "rc.local: Configuration complete"
+
+exit 0

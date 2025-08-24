@@ -1,0 +1,13 @@
+[Unit]
+Description=Raspberry Pi Desktop UI
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/local/bin/start-desktop-gui.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
