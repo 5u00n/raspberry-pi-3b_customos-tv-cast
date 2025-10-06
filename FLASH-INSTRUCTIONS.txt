@@ -1,0 +1,66 @@
+🍓 How to Flash Your Custom Raspberry Pi OS to SD Card
+======================================================
+
+Your custom OS image is ready at:
+  custom-raspberry-pi-os.img
+
+FLASHING INSTRUCTIONS FOR macOS:
+=================================
+
+1. Insert your SD card (minimum 8GB recommended)
+
+2. Find your SD card device:
+   diskutil list
+   
+   Look for your SD card (usually /dev/disk2 or /dev/disk3)
+   ⚠️  BE CAREFUL - selecting the wrong disk will erase it!
+
+3. Unmount the SD card:
+   diskutil unmountDisk /dev/diskX
+   (replace X with your disk number)
+
+4. Flash the image:
+   sudo dd if=custom-raspberry-pi-os.img of=/dev/rdiskX bs=1m status=progress
+   
+   (replace X with your disk number)
+   This will take 5-15 minutes. Be patient!
+
+5. Eject the SD card:
+   sudo diskutil eject /dev/diskX
+
+6. Insert SD card into Raspberry Pi 3B and power on
+
+WHAT HAPPENS ON FIRST BOOT:
+============================
+
+✅ Raspberry Pi boots to desktop automatically
+✅ Your custom GUI appears on screen immediately
+✅ No password required (auto-login as 'pi')
+✅ All services start automatically:
+   - AirPlay receiver (for iPhone/iPad)
+   - Google Cast (for Android/Chrome)
+   - Web dashboard (http://raspberrypi-custom:8080)
+   - File sharing (Samba)
+
+ACCESS YOUR RASPBERRY PI:
+=========================
+
+• Direct Access: Connect monitor and keyboard (GUI shows automatically)
+• SSH: ssh pi@raspberrypi-custom (password: raspberry)
+• Web Dashboard: http://raspberrypi-custom:8080
+• File Sharing: smb://raspberrypi-custom/pi (user: pi, password: raspberry)
+
+FEATURES:
+=========
+
+Your custom OS includes:
+✅ Full-screen custom GUI dashboard
+✅ AirPlay receiver - cast from iPhone/iPad
+✅ Google Cast - cast from Android/Chrome
+✅ Web-based remote control
+✅ WiFi security tools
+✅ File sharing via Samba
+✅ Auto-login and auto-start
+✅ Professional interface
+
+Enjoy your custom Raspberry Pi OS! 🍓
