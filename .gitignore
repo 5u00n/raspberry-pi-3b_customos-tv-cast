@@ -1,75 +1,51 @@
-# Raspberry Pi OS Custom Project .gitignore
+# Build artifacts and logs
+*.log
+*.txt
+build-*.log
+build-output.log
+build-progress.log
+build-docker-continue.log
 
-# Build and output directories
-/build/
-/output/
-/tmp/
-/temp/
-
-# Image files (too large for GitHub)
+# OS Images and large files
 *.img
 *.img.xz
 *.iso
-*.bin
-*.zip
-*.tar.gz
-*.tgz
+custom-raspberry-pi-os.img
+raspios-lite.img.xz
 
-# QEMU files
-/qemu_files/kernel-qemu*
-/qemu_files/*.dtb
+# Compressed files
+*.cpio.gz
+initramfs.cpio.gz
 
-# macOS specific files
+# Temporary files
+*.tmp
+*.temp
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-.Spotlight-V100
-.Trashes
-.fseventsd
+Thumbs.db
 
-# Editor files
+# Build directories
+build/
+output/
+pi-gen/work/
+pi-gen/deploy/
+
+# Docker volumes and containers
+docker-data/
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# Logs
-*.log
-logs/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
-# Temporary files
-*.tmp
+# Node modules (if any)
+node_modules/
+
+# Backup files
 *.bak
 *.backup
-
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Keep these files
-!overlays/
-!configs/
-!scripts/
-!*.sh
-!*.md
-!LICENSE
