@@ -7,11 +7,13 @@ This directory contains automated build workflows for the Custom Raspberry Pi OS
 ### 1. `build-image.yml` - Full OS Image Build
 
 **Triggers:**
+
 - Push to `main` branch
-- Pull requests to `main` branch  
+- Pull requests to `main` branch
 - Manual dispatch (workflow_dispatch)
 
 **What it does:**
+
 - Builds a complete custom Raspberry Pi OS image using Docker and pi-gen
 - Creates a custom stage3 with all your features:
   - Auto-login GUI
@@ -28,10 +30,12 @@ This directory contains automated build workflows for the Custom Raspberry Pi OS
 ### 2. `quick-build.yml` - Fast Validation
 
 **Triggers:**
+
 - Manual dispatch only
 - Push to specific paths (overlays/, configs/, scripts/)
 
 **What it does:**
+
 - Validates build script syntax
 - Tests Python code compilation
 - Checks configuration files
@@ -45,6 +49,7 @@ This directory contains automated build workflows for the Custom Raspberry Pi OS
 ### Automatic Builds
 
 Every time you push to the `main` branch, the full build workflow will:
+
 1. Build your custom OS image
 2. Upload it as a build artifact
 3. Create a GitHub release with the image
@@ -60,6 +65,7 @@ Every time you push to the `main` branch, the full build workflow will:
 ### Quick Testing
 
 For fast validation during development:
+
 1. Go to **Actions** → **"Quick Build Test"**
 2. Click **"Run workflow"**
 3. Get instant feedback on script syntax and configuration
@@ -67,6 +73,7 @@ For fast validation during development:
 ## Build Artifacts
 
 After each successful build, you'll find:
+
 - `RaspberryPi3B-CustomOS.img` - The bootable OS image
 - `RaspberryPi3B-CustomOS.zip` - Compressed version
 - Build logs and configuration files
@@ -74,6 +81,7 @@ After each successful build, you'll find:
 ## Releases
 
 Automatic releases are created on the `main` branch with:
+
 - Version tags (v1, v2, v3, etc.)
 - Release notes describing features
 - Downloadable image files
@@ -82,16 +90,19 @@ Automatic releases are created on the `main` branch with:
 ## Troubleshooting
 
 ### Build Fails
+
 - Check the **Actions** tab for detailed logs
 - Ensure all Python scripts have valid syntax
 - Verify configuration files are properly formatted
 
 ### No Release Created
+
 - Releases only happen on pushes to `main` branch
 - Check that the build completed successfully
 - Verify GitHub token permissions
 
 ### Slow Builds
+
 - GitHub Actions has resource limits
 - Large builds may take 60+ minutes
 - Consider using the quick-build workflow for testing
@@ -99,6 +110,7 @@ Automatic releases are created on the `main` branch with:
 ## Customization
 
 To modify the build process:
+
 1. Edit `.github/workflows/build-image.yml`
 2. Adjust the pi-gen configuration
 3. Add or remove packages in the stage3 setup
@@ -107,8 +119,9 @@ To modify the build process:
 ## Features Included
 
 Your automated builds include:
+
 - ✅ **Auto-login** - No password required
-- ✅ **Custom GUI** - Auto-starts on boot  
+- ✅ **Custom GUI** - Auto-starts on boot
 - ✅ **AirPlay Receiver** - Cast from iPhone/iPad
 - ✅ **Google Cast** - Cast from Android/Chrome
 - ✅ **Web Dashboard** - Remote control on port 8080

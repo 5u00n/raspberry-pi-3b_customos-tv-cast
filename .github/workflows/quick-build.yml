@@ -1,60 +1,60 @@
 name: Quick Build Test
 
 on:
-  workflow_dispatch:  # Manual trigger only
-  push:
-    paths:
-      - 'overlays/**'
-      - 'configs/**'
-      - 'scripts/**'
+    workflow_dispatch: # Manual trigger only
+    push:
+        paths:
+            - "overlays/**"
+            - "configs/**"
+            - "scripts/**"
 
 jobs:
-  quick-test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Test build scripts
-      run: |
-        echo "Testing build script syntax..."
-        bash -n build-custom-os.sh
-        bash -n build-with-docker.sh
-        bash -n build-with-pigen.sh
-        echo "✅ All build scripts have valid syntax"
-    
-    - name: Validate configuration files
-      run: |
-        echo "Validating configuration files..."
-        if [ -f "overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
-          python3 -m py_compile overlays/usr/local/bin/raspberry-pi-gui.py
-          echo "✅ GUI script is valid Python"
-        fi
-        
-        if [ -d "configs" ]; then
-          echo "✅ Configuration directory exists"
-        fi
-        
-        if [ -d "overlays" ]; then
-          echo "✅ Overlays directory exists"
-        fi
-    
-    - name: Create build summary
-      run: |
-        echo "## Build Summary" > build-summary.md
-        echo "- Repository: ${{ github.repository }}" >> build-summary.md
-        echo "- Branch: ${{ github.ref_name }}" >> build-summary.md
-        echo "- Commit: ${{ github.sha }}" >> build-summary.md
-        echo "- Triggered by: ${{ github.event_name }}" >> build-summary.md
-        echo "- Timestamp: $(date)" >> build-summary.md
-        echo "" >> build-summary.md
-        echo "### Files Changed:" >> build-summary.md
-        git diff --name-only HEAD~1 HEAD >> build-summary.md || echo "No previous commit to compare" >> build-summary.md
-    
-    - name: Upload build summary
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-summary
-        path: build-summary.md
-        retention-days: 7
+    quick-test:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Test build scripts
+              run: |
+                  echo "Testing build script syntax..."
+                  bash -n build-custom-os.sh
+                  bash -n build-with-docker.sh
+                  bash -n build-with-pigen.sh
+                  echo "✅ All build scripts have valid syntax"
+
+            - name: Validate configuration files
+              run: |
+                  echo "Validating configuration files..."
+                  if [ -f "overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+                    python3 -m py_compile overlays/usr/local/bin/raspberry-pi-gui.py
+                    echo "✅ GUI script is valid Python"
+                  fi
+
+                  if [ -d "configs" ]; then
+                    echo "✅ Configuration directory exists"
+                  fi
+
+                  if [ -d "overlays" ]; then
+                    echo "✅ Overlays directory exists"
+                  fi
+
+            - name: Create build summary
+              run: |
+                  echo "## Build Summary" > build-summary.md
+                  echo "- Repository: ${{ github.repository }}" >> build-summary.md
+                  echo "- Branch: ${{ github.ref_name }}" >> build-summary.md
+                  echo "- Commit: ${{ github.sha }}" >> build-summary.md
+                  echo "- Triggered by: ${{ github.event_name }}" >> build-summary.md
+                  echo "- Timestamp: $(date)" >> build-summary.md
+                  echo "" >> build-summary.md
+                  echo "### Files Changed:" >> build-summary.md
+                  git diff --name-only HEAD~1 HEAD >> build-summary.md || echo "No previous commit to compare" >> build-summary.md
+
+            - name: Upload build summary
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-summary
+                  path: build-summary.md
+                  retention-days: 7

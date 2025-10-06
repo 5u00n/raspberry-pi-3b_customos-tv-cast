@@ -1,361 +1,361 @@
 name: Build Custom Raspberry Pi OS Image
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # Allow manual triggering
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch: # Allow manual triggering
 
 jobs:
-  build-image:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for pi-gen
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static binfmt-support
-    
-    - name: Clone pi-gen repository
-      run: |
-        if [ ! -d "pi-gen" ]; then
-          git clone https://github.com/RPi-Distro/pi-gen.git
-        fi
-    
-    - name: Set up pi-gen configuration
-      run: |
-        cd pi-gen
-        # Clean previous builds
-        rm -rf work deploy
-        
-        # Create custom configuration
-        cat > config << 'EOF'
-        IMG_NAME='RaspberryPi3B-CustomOS'
-        RELEASE=bullseye
-        ENABLE_SSH=1
-        STAGE_LIST="stage0 stage1 stage2"
-        TARGET_HOSTNAME=raspberrypi-custom
-        FIRST_USER_NAME=pi
-        FIRST_USER_PASS=raspberry
-        DEPLOY_COMPRESSION=zip
-        EOF
-    
-    - name: Create custom stage3
-      run: |
-        cd pi-gen
-        
-        # Clean and create stage3
-        rm -rf stage3
-        mkdir -p stage3/00-install-packages
-        mkdir -p stage3/01-custom-scripts/files
-        
-        # Create package installation stage
-        cat > stage3/00-install-packages/00-packages << 'EOF'
-        python3
-        python3-pip
-        python3-tk
-        python3-psutil
-        xserver-xorg
-        xinit
-        lightdm
-        lxde-core
-        openbox
-        pcmanfm
-        lxterminal
-        shairport-sync
-        avahi-daemon
-        samba
-        nginx
-        iw
-        wireless-tools
-        chromium-browser
-        wget
-        curl
-        git
-        EOF
-        
-        cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
-        #!/bin/bash -e
-        on_chroot << EOFCHROOT
-        pip3 install flask flask-cors requests psutil
-        EOFCHROOT
-        EOFRUN
-        chmod +x stage3/00-install-packages/00-run.sh
-        
-        # Copy the GUI script from our project
-        cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage3/01-custom-scripts/files/
-        
-        # Create service scripts
-        cat > stage3/01-custom-scripts/files/airplay-service << 'EOFAIRPLAY'
-        #!/bin/bash
-        # AirPlay Service
-        case "$1" in
-            start)
-                shairport-sync -d
-                ;;
-            stop)
-                killall shairport-sync
-                ;;
-            restart)
-                $0 stop
-                sleep 1
-                $0 start
-                ;;
-        esac
-        EOFAIRPLAY
-        
-        cat > stage3/01-custom-scripts/files/google-cast-service << 'EOFCAST'
-        #!/bin/bash
-        # Google Cast Service
-        case "$1" in
-            start)
-                python3 -m http.server 8008 &
-                echo $! > /var/run/google-cast.pid
-                ;;
-            stop)
-                kill $(cat /var/run/google-cast.pid 2>/dev/null) 2>/dev/null || true
-                ;;
-            restart)
-                $0 stop
-                sleep 1
-                $0 start
-                ;;
-        esac
-        EOFCAST
-        
-        cat > stage3/01-custom-scripts/files/remote-control-server << 'EOFREMOTE'
-        #!/usr/bin/env python3
-        # Remote Control Web Server
-        from flask import Flask, jsonify, render_template_string
-        import psutil
-        import socket
-        
-        app = Flask(__name__)
-        
-        @app.route('/')
-        def dashboard():
-            return render_template_string('''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Raspberry Pi Dashboard</title>
-            <style>
-                body { font-family: Arial; background: #2c3e50; color: white; padding: 20px; }
-                .card { background: #34495e; padding: 20px; margin: 10px; border-radius: 10px; }
-                h1 { text-align: center; }
-            </style>
-        </head>
-        <body>
-            <h1>🍓 Raspberry Pi Custom OS Dashboard</h1>
-            <div class="card">
-                <h2>System Status</h2>
-                <p>CPU: <span id="cpu">Loading...</span></p>
-                <p>Memory: <span id="memory">Loading...</span></p>
-            </div>
-            <script>
-                setInterval(() => {
-                    fetch('/api/status')
-                        .then(r => r.json())
-                        .then(d => {
-                            document.getElementById('cpu').textContent = d.cpu + '%';
-                            document.getElementById('memory').textContent = d.memory + '%';
-                        });
-                }, 2000);
-            </script>
-        </body>
-        </html>
-            ''')
-        
-        @app.route('/api/status')
-        def status():
-            return jsonify({
-                'cpu': psutil.cpu_percent(),
-                'memory': psutil.virtual_memory().percent
-            })
-        
-        if __name__ == '__main__':
-            app.run(host='0.0.0.0', port=8080)
-        EOFREMOTE
-        
-        # Create installation script
-        cat > stage3/01-custom-scripts/00-run.sh << 'EOFINSTALL'
-        #!/bin/bash -e
-        
-        on_chroot << EOFCHROOT
-        # Create directories
-        mkdir -p /usr/local/bin
-        mkdir -p /home/pi/.config/autostart
-        
-        # Install scripts
-        install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
-        install -m 755 /tmp/files/airplay-service /usr/local/bin/
-        install -m 755 /tmp/files/google-cast-service /usr/local/bin/
-        install -m 755 /tmp/files/remote-control-server /usr/local/bin/
-        
-        # Create autostart desktop entry for GUI
-        cat > /home/pi/.config/autostart/custom-gui.desktop << 'AUTOSTART'
-        [Desktop Entry]
-        Type=Application
-        Name=Custom GUI
-        Exec=python3 /usr/local/bin/raspberry-pi-gui.py
-        Hidden=false
-        NoDisplay=false
-        X-GNOME-Autostart-enabled=true
-        AUTOSTART
-        
-        # Set ownership
-        chown -R 1000:1000 /home/pi/.config
-        
-        # Enable auto-login
-        mkdir -p /etc/systemd/system/getty@tty1.service.d
-        cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
-        [Service]
-        ExecStart=
-        ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
-        AUTOLOGIN
-        
-        # Configure LightDM for auto-login
-        sed -i 's/#autologin-user=/autologin-user=pi/' /etc/lightdm/lightdm.conf
-        sed -i 's/#autologin-user-timeout=0/autologin-user-timeout=0/' /etc/lightdm/lightdm.conf
-        
-        # Enable desktop to start automatically
-        systemctl set-default graphical.target
-        systemctl enable lightdm
-        
-        # Create systemd services
-        cat > /etc/systemd/system/airplay.service << 'AIRPLAY'
-        [Unit]
-        Description=AirPlay Receiver
-        After=network.target
-        
-        [Service]
-        Type=forking
-        ExecStart=/usr/local/bin/airplay-service start
-        ExecStop=/usr/local/bin/airplay-service stop
-        Restart=always
-        
-        [Install]
-        WantedBy=multi-user.target
-        AIRPLAY
-        
-        cat > /etc/systemd/system/google-cast.service << 'CAST'
-        [Unit]
-        Description=Google Cast Receiver
-        After=network.target
-        
-        [Service]
-        Type=forking
-        ExecStart=/usr/local/bin/google-cast-service start
-        ExecStop=/usr/local/bin/google-cast-service stop
-        Restart=always
-        
-        [Install]
-        WantedBy=multi-user.target
-        CAST
-        
-        cat > /etc/systemd/system/remote-control.service << 'REMOTE'
-        [Unit]
-        Description=Remote Control Web Server
-        After=network.target
-        
-        [Service]
-        Type=simple
-        ExecStart=/usr/bin/python3 /usr/local/bin/remote-control-server
-        Restart=always
-        User=pi
-        
-        [Install]
-        WantedBy=multi-user.target
-        REMOTE
-        
-        # Enable services
-        systemctl enable airplay.service
-        systemctl enable google-cast.service
-        systemctl enable remote-control.service
-        
-        # Configure Samba
-        cat >> /etc/samba/smb.conf << 'SAMBA'
-        
-        [pi]
-           path = /home/pi
-           browseable = yes
-           read only = no
-           guest ok = no
-        SAMBA
-        
-        # Set Samba password
-        (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s
-        
-        echo "✅ Custom OS configuration complete!"
-        EOFCHROOT
-        
-        # Copy files to chroot
-        install -d "${ROOTFS_DIR}/tmp/files"
-        install -m 644 files/* "${ROOTFS_DIR}/tmp/files/"
-        EOFINSTALL
-        
-        chmod +x stage3/01-custom-scripts/00-run.sh
-        
-        # Create export marker
-        touch stage3/EXPORT_IMAGE
-    
-    - name: Build custom OS image with Docker
-      run: |
-        cd pi-gen
-        ./build-docker.sh
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: custom-raspberry-pi-os
-        path: |
-          pi-gen/deploy/*.img
-          pi-gen/deploy/*.zip
-        retention-days: 30
-    
-    - name: Create release (on main branch push)
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          pi-gen/deploy/*.img
-          pi-gen/deploy/*.zip
-        tag_name: v${{ github.run_number }}
-        name: Custom Raspberry Pi OS v${{ github.run_number }}
-        body: |
-          🍓 **Custom Raspberry Pi 3B OS Build**
-          
-          This release contains a custom Raspberry Pi OS image with the following features:
-          
-          ✅ **Auto-login** - No password required
-          ✅ **Custom GUI** - Auto-starts on boot
-          ✅ **AirPlay Receiver** - Cast from iPhone/iPad
-          ✅ **Google Cast** - Cast from Android/Chrome
-          ✅ **Web Dashboard** - Remote control interface on port 8080
-          ✅ **File Sharing** - Samba shares for data access
-          ✅ **WiFi Security Tools** - Background monitoring
-          
-          **Installation:**
-          1. Download the `.img` file
-          2. Flash to SD card (8GB+ recommended)
-          3. Insert into Raspberry Pi 3B
-          4. Power on - GUI starts automatically!
-          
-          **Access:**
-          - Direct: Monitor + keyboard (auto-login)
-          - SSH: `ssh pi@raspberrypi-custom` (password: raspberry)
-          - Web: `http://raspberrypi-custom:8080`
-          - Files: `smb://raspberrypi-custom/pi`
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    build-image:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # Full history for pi-gen
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y qemu-user-static binfmt-support
+
+            - name: Clone pi-gen repository
+              run: |
+                  if [ ! -d "pi-gen" ]; then
+                    git clone https://github.com/RPi-Distro/pi-gen.git
+                  fi
+
+            - name: Set up pi-gen configuration
+              run: |
+                  cd pi-gen
+                  # Clean previous builds
+                  rm -rf work deploy
+
+                  # Create custom configuration
+                  cat > config << 'EOF'
+                  IMG_NAME='RaspberryPi3B-CustomOS'
+                  RELEASE=bullseye
+                  ENABLE_SSH=1
+                  STAGE_LIST="stage0 stage1 stage2"
+                  TARGET_HOSTNAME=raspberrypi-custom
+                  FIRST_USER_NAME=pi
+                  FIRST_USER_PASS=raspberry
+                  DEPLOY_COMPRESSION=zip
+                  EOF
+
+            - name: Create custom stage3
+              run: |
+                  cd pi-gen
+
+                  # Clean and create stage3
+                  rm -rf stage3
+                  mkdir -p stage3/00-install-packages
+                  mkdir -p stage3/01-custom-scripts/files
+
+                  # Create package installation stage
+                  cat > stage3/00-install-packages/00-packages << 'EOF'
+                  python3
+                  python3-pip
+                  python3-tk
+                  python3-psutil
+                  xserver-xorg
+                  xinit
+                  lightdm
+                  lxde-core
+                  openbox
+                  pcmanfm
+                  lxterminal
+                  shairport-sync
+                  avahi-daemon
+                  samba
+                  nginx
+                  iw
+                  wireless-tools
+                  chromium-browser
+                  wget
+                  curl
+                  git
+                  EOF
+
+                  cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  pip3 install flask flask-cors requests psutil
+                  EOFCHROOT
+                  EOFRUN
+                  chmod +x stage3/00-install-packages/00-run.sh
+
+                  # Copy the GUI script from our project
+                  cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage3/01-custom-scripts/files/
+
+                  # Create service scripts
+                  cat > stage3/01-custom-scripts/files/airplay-service << 'EOFAIRPLAY'
+                  #!/bin/bash
+                  # AirPlay Service
+                  case "$1" in
+                      start)
+                          shairport-sync -d
+                          ;;
+                      stop)
+                          killall shairport-sync
+                          ;;
+                      restart)
+                          $0 stop
+                          sleep 1
+                          $0 start
+                          ;;
+                  esac
+                  EOFAIRPLAY
+
+                  cat > stage3/01-custom-scripts/files/google-cast-service << 'EOFCAST'
+                  #!/bin/bash
+                  # Google Cast Service
+                  case "$1" in
+                      start)
+                          python3 -m http.server 8008 &
+                          echo $! > /var/run/google-cast.pid
+                          ;;
+                      stop)
+                          kill $(cat /var/run/google-cast.pid 2>/dev/null) 2>/dev/null || true
+                          ;;
+                      restart)
+                          $0 stop
+                          sleep 1
+                          $0 start
+                          ;;
+                  esac
+                  EOFCAST
+
+                  cat > stage3/01-custom-scripts/files/remote-control-server << 'EOFREMOTE'
+                  #!/usr/bin/env python3
+                  # Remote Control Web Server
+                  from flask import Flask, jsonify, render_template_string
+                  import psutil
+                  import socket
+
+                  app = Flask(__name__)
+
+                  @app.route('/')
+                  def dashboard():
+                      return render_template_string('''
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                      <title>Raspberry Pi Dashboard</title>
+                      <style>
+                          body { font-family: Arial; background: #2c3e50; color: white; padding: 20px; }
+                          .card { background: #34495e; padding: 20px; margin: 10px; border-radius: 10px; }
+                          h1 { text-align: center; }
+                      </style>
+                  </head>
+                  <body>
+                      <h1>🍓 Raspberry Pi Custom OS Dashboard</h1>
+                      <div class="card">
+                          <h2>System Status</h2>
+                          <p>CPU: <span id="cpu">Loading...</span></p>
+                          <p>Memory: <span id="memory">Loading...</span></p>
+                      </div>
+                      <script>
+                          setInterval(() => {
+                              fetch('/api/status')
+                                  .then(r => r.json())
+                                  .then(d => {
+                                      document.getElementById('cpu').textContent = d.cpu + '%';
+                                      document.getElementById('memory').textContent = d.memory + '%';
+                                  });
+                          }, 2000);
+                      </script>
+                  </body>
+                  </html>
+                      ''')
+
+                  @app.route('/api/status')
+                  def status():
+                      return jsonify({
+                          'cpu': psutil.cpu_percent(),
+                          'memory': psutil.virtual_memory().percent
+                      })
+
+                  if __name__ == '__main__':
+                      app.run(host='0.0.0.0', port=8080)
+                  EOFREMOTE
+
+                  # Create installation script
+                  cat > stage3/01-custom-scripts/00-run.sh << 'EOFINSTALL'
+                  #!/bin/bash -e
+
+                  on_chroot << EOFCHROOT
+                  # Create directories
+                  mkdir -p /usr/local/bin
+                  mkdir -p /home/pi/.config/autostart
+
+                  # Install scripts
+                  install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
+                  install -m 755 /tmp/files/airplay-service /usr/local/bin/
+                  install -m 755 /tmp/files/google-cast-service /usr/local/bin/
+                  install -m 755 /tmp/files/remote-control-server /usr/local/bin/
+
+                  # Create autostart desktop entry for GUI
+                  cat > /home/pi/.config/autostart/custom-gui.desktop << 'AUTOSTART'
+                  [Desktop Entry]
+                  Type=Application
+                  Name=Custom GUI
+                  Exec=python3 /usr/local/bin/raspberry-pi-gui.py
+                  Hidden=false
+                  NoDisplay=false
+                  X-GNOME-Autostart-enabled=true
+                  AUTOSTART
+
+                  # Set ownership
+                  chown -R 1000:1000 /home/pi/.config
+
+                  # Enable auto-login
+                  mkdir -p /etc/systemd/system/getty@tty1.service.d
+                  cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
+                  [Service]
+                  ExecStart=
+                  ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+                  AUTOLOGIN
+
+                  # Configure LightDM for auto-login
+                  sed -i 's/#autologin-user=/autologin-user=pi/' /etc/lightdm/lightdm.conf
+                  sed -i 's/#autologin-user-timeout=0/autologin-user-timeout=0/' /etc/lightdm/lightdm.conf
+
+                  # Enable desktop to start automatically
+                  systemctl set-default graphical.target
+                  systemctl enable lightdm
+
+                  # Create systemd services
+                  cat > /etc/systemd/system/airplay.service << 'AIRPLAY'
+                  [Unit]
+                  Description=AirPlay Receiver
+                  After=network.target
+
+                  [Service]
+                  Type=forking
+                  ExecStart=/usr/local/bin/airplay-service start
+                  ExecStop=/usr/local/bin/airplay-service stop
+                  Restart=always
+
+                  [Install]
+                  WantedBy=multi-user.target
+                  AIRPLAY
+
+                  cat > /etc/systemd/system/google-cast.service << 'CAST'
+                  [Unit]
+                  Description=Google Cast Receiver
+                  After=network.target
+
+                  [Service]
+                  Type=forking
+                  ExecStart=/usr/local/bin/google-cast-service start
+                  ExecStop=/usr/local/bin/google-cast-service stop
+                  Restart=always
+
+                  [Install]
+                  WantedBy=multi-user.target
+                  CAST
+
+                  cat > /etc/systemd/system/remote-control.service << 'REMOTE'
+                  [Unit]
+                  Description=Remote Control Web Server
+                  After=network.target
+
+                  [Service]
+                  Type=simple
+                  ExecStart=/usr/bin/python3 /usr/local/bin/remote-control-server
+                  Restart=always
+                  User=pi
+
+                  [Install]
+                  WantedBy=multi-user.target
+                  REMOTE
+
+                  # Enable services
+                  systemctl enable airplay.service
+                  systemctl enable google-cast.service
+                  systemctl enable remote-control.service
+
+                  # Configure Samba
+                  cat >> /etc/samba/smb.conf << 'SAMBA'
+
+                  [pi]
+                     path = /home/pi
+                     browseable = yes
+                     read only = no
+                     guest ok = no
+                  SAMBA
+
+                  # Set Samba password
+                  (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s
+
+                  echo "✅ Custom OS configuration complete!"
+                  EOFCHROOT
+
+                  # Copy files to chroot
+                  install -d "${ROOTFS_DIR}/tmp/files"
+                  install -m 644 files/* "${ROOTFS_DIR}/tmp/files/"
+                  EOFINSTALL
+
+                  chmod +x stage3/01-custom-scripts/00-run.sh
+
+                  # Create export marker
+                  touch stage3/EXPORT_IMAGE
+
+            - name: Build custom OS image with Docker
+              run: |
+                  cd pi-gen
+                  ./build-docker.sh
+
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: custom-raspberry-pi-os
+                  path: |
+                      pi-gen/deploy/*.img
+                      pi-gen/deploy/*.zip
+                  retention-days: 30
+
+            - name: Create release (on main branch push)
+              if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: |
+                      pi-gen/deploy/*.img
+                      pi-gen/deploy/*.zip
+                  tag_name: v${{ github.run_number }}
+                  name: Custom Raspberry Pi OS v${{ github.run_number }}
+                  body: |
+                      🍓 **Custom Raspberry Pi 3B OS Build**
+
+                      This release contains a custom Raspberry Pi OS image with the following features:
+
+                      ✅ **Auto-login** - No password required
+                      ✅ **Custom GUI** - Auto-starts on boot
+                      ✅ **AirPlay Receiver** - Cast from iPhone/iPad
+                      ✅ **Google Cast** - Cast from Android/Chrome
+                      ✅ **Web Dashboard** - Remote control interface on port 8080
+                      ✅ **File Sharing** - Samba shares for data access
+                      ✅ **WiFi Security Tools** - Background monitoring
+
+                      **Installation:**
+                      1. Download the `.img` file
+                      2. Flash to SD card (8GB+ recommended)
+                      3. Insert into Raspberry Pi 3B
+                      4. Power on - GUI starts automatically!
+
+                      **Access:**
+                      - Direct: Monitor + keyboard (auto-login)
+                      - SSH: `ssh pi@raspberrypi-custom` (password: raspberry)
+                      - Web: `http://raspberrypi-custom:8080`
+                      - Files: `smb://raspberrypi-custom/pi`
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
