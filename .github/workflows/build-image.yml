@@ -25,11 +25,13 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y qemu-user-static binfmt-support
 
-            - name: Clone pi-gen repository
+            - name: Verify pi-gen directory
               run: |
                   if [ ! -d "pi-gen" ]; then
-                    git clone https://github.com/RPi-Distro/pi-gen.git
+                    echo "❌ pi-gen directory not found!"
+                    exit 1
                   fi
+                  echo "✅ Using local pi-gen directory"
 
             - name: Set up pi-gen configuration
               run: |
