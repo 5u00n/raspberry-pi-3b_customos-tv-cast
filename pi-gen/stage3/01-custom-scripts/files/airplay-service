@@ -1,0 +1,15 @@
+#!/bin/bash
+# AirPlay Service
+case "$1" in
+    start)
+        shairport-sync -d
+        ;;
+    stop)
+        killall shairport-sync 2>/dev/null || true
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+esac

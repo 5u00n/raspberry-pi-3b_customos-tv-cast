@@ -1,0 +1,18 @@
+#!/bin/bash
+# Google Cast Service
+case "$1" in
+    start)
+        cd /home/pi
+        python3 -m http.server 8008 &
+        echo $! > /var/run/google-cast.pid
+        ;;
+    stop)
+        kill $(cat /var/run/google-cast.pid 2>/dev/null) 2>/dev/null || true
+        rm -f /var/run/google-cast.pid
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+esac
