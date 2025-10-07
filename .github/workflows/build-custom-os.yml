@@ -164,6 +164,10 @@ jobs:
           ls -lh
           echo "Build complete!"
 
+      - name: Fix permissions for deploy directory
+        run: |
+          sudo chown -R $USER:$USER pi-gen/deploy
+
       - name: Upload Custom OS Image
         uses: actions/upload-artifact@v4
         with:
