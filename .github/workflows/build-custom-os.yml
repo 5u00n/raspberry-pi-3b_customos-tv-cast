@@ -54,7 +54,7 @@ jobs:
           RELEASE=bookworm
           DEPLOY_COMPRESSION=zip
           ENABLE_SSH=1
-          STAGE_LIST="stage0 stage1 stage2"
+          STAGE_LIST="stage0 stage1 stage2 stage3"
           TARGET_HOSTNAME=raspberrypi-custom
           FIRST_USER_NAME=pi
           FIRST_USER_PASS=raspberry
@@ -114,6 +114,66 @@ jobs:
           mkdir -p /usr/local/bin
           mkdir -p /home/pi/.config/autostart
 
+          # Install GUI script if it exists
+          if [ -f "/tmp/files/raspberry-pi-gui.py" ]; then
+            install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
+            echo "Custom GUI script installed"
+          else
+            echo "Custom GUI script not found, creating basic one"
+            cat > /usr/local/bin/raspberry-pi-gui.py << 'GUISCRIPT'
+          #!/usr/bin/env python3
+          import sys
+          import os
+          try:
+              from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
+              from PyQt5.QtCore import Qt
+              from PyQt5.QtGui import QFont
+              
+              class SimpleGUI(QWidget):
+                  def __init__(self):
+                      super().__init__()
+                      self.setWindowTitle("Raspberry Pi Custom OS")
+                      self.setGeometry(100, 100, 800, 600)
+                      self.setWindowState(Qt.WindowFullScreen)
+                      self.initUI()
+                  
+                  def initUI(self):
+                      layout = QVBoxLayout()
+                      
+                      title = QLabel("🍓 Raspberry Pi Custom OS")
+                      title.setAlignment(Qt.AlignCenter)
+                      title.setFont(QFont("Arial", 24))
+                      layout.addWidget(title)
+                      
+                      info = QLabel("System is starting up...\nSSH: pi@raspberrypi-custom\nPassword: raspberry")
+                      info.setAlignment(Qt.AlignCenter)
+                      info.setFont(QFont("Arial", 16))
+                      layout.addWidget(info)
+                      
+                      self.setLayout(layout)
+              
+              if __name__ == '__main__':
+                  app = QApplication(sys.argv)
+                  gui = SimpleGUI()
+                  gui.show()
+                  sys.exit(app.exec_())
+          except ImportError:
+              print("PyQt5 not available, skipping GUI")
+          GUISCRIPT
+            chmod +x /usr/local/bin/raspberry-pi-gui.py
+          fi
+
+          # Create autostart desktop entry
+          cat > /home/pi/.config/autostart/custom-gui.desktop << 'AUTOSTART'
+          [Desktop Entry]
+          Type=Application
+          Name=Custom GUI
+          Exec=python3 /usr/local/bin/raspberry-pi-gui.py
+          Hidden=false
+          NoDisplay=false
+          X-GNOME-Autostart-enabled=true
+          AUTOSTART
+
           # Configure auto-login
           mkdir -p /etc/systemd/system/getty@tty1.service.d
           cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
@@ -146,6 +206,297 @@ jobs:
           EOFGUI
 
           chmod +x stage3/01-custom-gui/00-run.sh
+
+          # Add web dashboard and services configuration
+          mkdir -p stage3/02-web-dashboard/files
+          
+          cat > stage3/02-web-dashboard/files/web-dashboard.py << 'WEBDASH'
+          #!/usr/bin/env python3
+          from flask import Flask, render_template_string, jsonify, request
+          import subprocess
+          import psutil
+          import os
+          
+          app = Flask(__name__)
+          
+          @app.route('/')
+          def dashboard():
+              return render_template_string('''
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Raspberry Pi Custom OS Dashboard</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #1a1a1a; color: #fff; }
+                  .container { max-width: 1200px; margin: 0 auto; }
+                  .card { background: #2d2d2d; padding: 20px; margin: 10px 0; border-radius: 8px; }
+                  .status { display: inline-block; padding: 5px 10px; border-radius: 4px; margin: 5px; }
+                  .running { background: #4CAF50; }
+                  .stopped { background: #f44336; }
+                  button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+                  button:hover { background: #0056b3; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🍓 Raspberry Pi Custom OS Dashboard</h1>
+                  
+                  <div class="card">
+                      <h2>System Status</h2>
+                      <p>CPU: <span id="cpu">Loading...</span></p>
+                      <p>Memory: <span id="memory">Loading...</span></p>
+                      <p>Disk: <span id="disk">Loading...</span></p>
+                      <p>Temperature: <span id="temp">Loading...</span></p>
+                  </div>
+                  
+                  <div class="card">
+                      <h2>Services</h2>
+                      <div id="services">Loading...</div>
+                  </div>
+                  
+                  <div class="card">
+                      <h2>Quick Actions</h2>
+                      <button onclick="reboot()">Reboot</button>
+                      <button onclick="shutdown()">Shutdown</button>
+                      <button onclick="toggleSSH()">Toggle SSH</button>
+                  </div>
+              </div>
+              
+              <script>
+                  function updateStatus() {
+                      fetch('/api/status')
+                          .then(response => response.json())
+                          .then(data => {
+                              document.getElementById('cpu').textContent = data.cpu + '%';
+                              document.getElementById('memory').textContent = data.memory + '%';
+                              document.getElementById('disk').textContent = data.disk + '%';
+                              document.getElementById('temp').textContent = data.temp + '°C';
+                          });
+                      
+                      fetch('/api/services')
+                          .then(response => response.json())
+                          .then(data => {
+                              let html = '';
+                              for (let service in data) {
+                                  const status = data[service] ? 'running' : 'stopped';
+                                  html += `<span class="status ${status}">${service}: ${status}</span>`;
+                              }
+                              document.getElementById('services').innerHTML = html;
+                          });
+                  }
+                  
+                  function reboot() {
+                      fetch('/api/reboot', {method: 'POST'});
+                  }
+                  
+                  function shutdown() {
+                      fetch('/api/shutdown', {method: 'POST'});
+                  }
+                  
+                  function toggleSSH() {
+                      fetch('/api/toggle-ssh', {method: 'POST'});
+                  }
+                  
+                  setInterval(updateStatus, 2000);
+                  updateStatus();
+              </script>
+          </body>
+          </html>
+          ''')
+          
+          @app.route('/api/status')
+          def api_status():
+              return jsonify({
+                  'cpu': psutil.cpu_percent(),
+                  'memory': psutil.virtual_memory().percent,
+                  'disk': psutil.disk_usage('/').percent,
+                  'temp': get_cpu_temp()
+              })
+          
+          @app.route('/api/services')
+          def api_services():
+              services = ['ssh', 'shairport-sync', 'avahi-daemon', 'smbd', 'nginx', 'lightdm']
+              status = {}
+              for service in services:
+                  try:
+                      result = subprocess.run(['systemctl', 'is-active', service], 
+                                            capture_output=True, text=True)
+                      status[service] = result.stdout.strip() == 'active'
+                  except:
+                      status[service] = False
+              return jsonify(status)
+          
+          @app.route('/api/reboot', methods=['POST'])
+          def api_reboot():
+              subprocess.run(['sudo', 'reboot'], check=False)
+              return jsonify({'status': 'rebooting'})
+          
+          @app.route('/api/shutdown', methods=['POST'])
+          def api_shutdown():
+              subprocess.run(['sudo', 'shutdown', '-h', 'now'], check=False)
+              return jsonify({'status': 'shutting down'})
+          
+          @app.route('/api/toggle-ssh', methods=['POST'])
+          def api_toggle_ssh():
+              try:
+                  result = subprocess.run(['systemctl', 'is-active', 'ssh'], 
+                                        capture_output=True, text=True)
+                  if result.stdout.strip() == 'active':
+                      subprocess.run(['sudo', 'systemctl', 'stop', 'ssh'])
+                  else:
+                      subprocess.run(['sudo', 'systemctl', 'start', 'ssh'])
+                  return jsonify({'status': 'toggled'})
+              except:
+                  return jsonify({'status': 'error'})
+          
+          def get_cpu_temp():
+              try:
+                  with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                      temp = int(f.read()) / 1000
+                      return f"{temp:.1f}"
+              except:
+                  return "N/A"
+          
+          if __name__ == '__main__':
+              app.run(host='0.0.0.0', port=8080, debug=False)
+          WEBDASH
+
+          cat > stage3/02-web-dashboard/00-run.sh << 'WEBRUN'
+          #!/bin/bash -e
+          on_chroot << EOFCHROOT
+          # Install web dashboard
+          install -m 755 /tmp/files/web-dashboard.py /usr/local/bin/
+          
+          # Create systemd service for web dashboard
+          cat > /etc/systemd/system/web-dashboard.service << 'WEBSERVICE'
+          [Unit]
+          Description=Web Dashboard
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=pi
+          WorkingDirectory=/home/pi
+          ExecStart=/usr/bin/python3 /usr/local/bin/web-dashboard.py
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+          WEBSERVICE
+          
+          # Enable web dashboard service
+          systemctl enable web-dashboard.service
+          
+          # Configure nginx for web dashboard
+          cat > /etc/nginx/sites-available/web-dashboard << 'NGINXCONF'
+          server {
+              listen 80;
+              server_name _;
+              
+              location / {
+                  proxy_pass http://127.0.0.1:8080;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+          }
+          NGINXCONF
+          
+          # Enable nginx site
+          ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
+          rm -f /etc/nginx/sites-enabled/default
+          
+          # Configure shairport-sync
+          cat > /etc/shairport-sync.conf << 'SHAIRPORT'
+          general = {
+              name = "Raspberry Pi Custom OS";
+              output_backend = "alsa";
+              mixer_control_name = "PCM";
+          }
+          
+          alsa = {
+              output_device = "hw:0";
+              mixer_control_name = "PCM";
+          }
+          SHAIRPORT
+          
+          # Create Google Cast service
+          cat > /usr/local/bin/google-cast-server.py << 'CASTSERVER'
+          #!/usr/bin/env python3
+          import http.server
+          import socketserver
+          import json
+          import subprocess
+          import os
+          
+          class CastHandler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == '/':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'text/html')
+                      self.end_headers()
+                      self.wfile.write(b'<h1>Google Cast Server Ready</h1><p>Cast to this device!</p>')
+                  elif self.path == '/cast':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps({'status': 'ready'}).encode())
+              
+              def do_POST(self):
+                  if self.path == '/cast':
+                      content_length = int(self.headers['Content-Length'])
+                      post_data = self.rfile.read(content_length)
+                      data = json.loads(post_data.decode('utf-8'))
+                      
+                      if 'url' in data:
+                          # Handle cast request
+                          subprocess.Popen(['chromium-browser', '--kiosk', data['url']])
+                      
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      self.wfile.write(json.dumps({'status': 'casted'}).encode())
+          
+          if __name__ == '__main__':
+              PORT = 8081
+              with socketserver.TCPServer(("", PORT), CastHandler) as httpd:
+                  print(f"Google Cast server running on port {PORT}")
+                  httpd.serve_forever()
+          CASTSERVER
+          
+          chmod +x /usr/local/bin/google-cast-server.py
+          
+          # Create Google Cast service
+          cat > /etc/systemd/system/google-cast.service << 'CASTSERVICE'
+          [Unit]
+          Description=Google Cast Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=pi
+          WorkingDirectory=/home/pi
+          ExecStart=/usr/bin/python3 /usr/local/bin/google-cast-server.py
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+          CASTSERVICE
+          
+          systemctl enable google-cast.service
+          
+          # Ensure SSH is enabled
+          systemctl enable ssh
+          
+          # Set up proper permissions
+          chown -R pi:pi /home/pi
+          chmod +x /usr/local/bin/*.py
+          EOFCHROOT
+          WEBRUN
+
+          chmod +x stage3/02-web-dashboard/00-run.sh
 
           # Mark for export
           touch stage3/EXPORT_IMAGE
