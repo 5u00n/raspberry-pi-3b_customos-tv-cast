@@ -1,395 +1,428 @@
 #!/usr/bin/env python3
 """
-Custom Raspberry Pi Qt GUI Dashboard
-Professional interface with PyQt5
+Custom Raspberry Pi Qt Desktop
+Complete dashboard with all requested features
 """
 
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QPalette, QColor
+import os
+import subprocess
+import time
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QProgressBar, QFrame, QGridLayout, QTextEdit,
+    QGroupBox, QScrollArea, QSystemTrayIcon, QMenu
+)
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, QSize
+from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QLinearGradient, QBrush
+
+try:
+    import psutil
+except ImportError:
+    subprocess.run(['sudo', 'pip3', 'install', 'psutil'], check=False)
 import psutil
-import socket
-from datetime import datetime
 
-class ServiceWidget(QFrame):
-    def __init__(self, name, parent=None):
-        super().__init__(parent)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        self.setStyleSheet("""
-            QFrame {
-                background-color: #34495e;
-                border-radius: 10px;
-                padding: 10px;
-            }
-        """)
-        
-        layout = QHBoxLayout()
-        
-        # Status indicator
-        self.indicator = QLabel("●")
-        self.indicator.setStyleSheet("color: #27ae60; font-size: 20px;")
-        layout.addWidget(self.indicator)
-        
-        # Service name
-        name_label = QLabel(name)
-        name_label.setStyleSheet("color: white; font-size: 14px;")
-        layout.addWidget(name_label)
-        
-        layout.addStretch()
-        
-        # Status text
-        self.status = QLabel("Running")
-        self.status.setStyleSheet("color: #27ae60; font-size: 12px;")
-        layout.addWidget(self.status)
-        
-        self.setLayout(layout)
 
-class StatWidget(QFrame):
-    def __init__(self, label, value, parent=None):
-        super().__init__(parent)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        self.setStyleSheet("""
-            QFrame {
-                background-color: #34495e;
-                border-radius: 10px;
-                padding: 15px;
-            }
-        """)
-        
-        layout = QVBoxLayout()
-        
-        # Label
-        label_widget = QLabel(label)
-        label_widget.setStyleSheet("color: #bdc3c7; font-size: 12px;")
-        layout.addWidget(label_widget)
-        
-        # Value
-        self.value_widget = QLabel(value)
-        self.value_widget.setStyleSheet("color: white; font-size: 24px; font-weight: bold;")
-        layout.addWidget(self.value_widget)
-        
-        self.setLayout(layout)
+class SystemMonitor(QThread):
+    """Background thread for system monitoring"""
+    stats_updated = pyqtSignal(dict)
     
-    def update_value(self, value):
-        self.value_widget.setText(value)
-
-class RaspberryPiDashboard(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.init_ui()
-        
-        # Setup update timer
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_stats)
-        self.timer.start(2000)  # Update every 2 seconds
-    
-    def init_ui(self):
-        self.setWindowTitle("🍓 Raspberry Pi 3B Custom OS")
-        self.setGeometry(0, 0, 1024, 600)
-        
-        # Set dark theme
-        self.setStyleSheet("""
-            QMainWindow {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #667eea, stop:1 #764ba2);
-            }
-        """)
-        
-        # Central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # Main layout
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(20)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Header
-        header = self.create_header()
-        main_layout.addWidget(header)
-        
-        # Stats section
-        stats_layout = QHBoxLayout()
-        stats_layout.setSpacing(15)
-        
-        self.cpu_stat = StatWidget("CPU Usage", "0%")
-        self.memory_stat = StatWidget("Memory", "0%")
-        self.disk_stat = StatWidget("Disk", "0%")
-        self.temp_stat = StatWidget("Temperature", "0°C")
-        
-        stats_layout.addWidget(self.cpu_stat)
-        stats_layout.addWidget(self.memory_stat)
-        stats_layout.addWidget(self.disk_stat)
-        stats_layout.addWidget(self.temp_stat)
-        
-        main_layout.addLayout(stats_layout)
-        
-        # System info
-        info_frame = self.create_info_section()
-        main_layout.addWidget(info_frame)
-        
-        # Services section
-        services_frame = self.create_services_section()
-        main_layout.addWidget(services_frame)
-        
-        # Features section
-        features_frame = self.create_features_section()
-        main_layout.addWidget(features_frame)
-        
-        # Footer with exit button
-        footer = QHBoxLayout()
-        footer.addStretch()
-        
-        exit_btn = QPushButton("Exit (ESC)")
-        exit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                padding: 10px 30px;
-                font-size: 14px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        exit_btn.clicked.connect(self.close)
-        footer.addWidget(exit_btn)
-        
-        main_layout.addLayout(footer)
-        
-        central_widget.setLayout(main_layout)
-        
-        # Initial update
-        self.update_stats()
-    
-    def create_header(self):
-        header = QFrame()
-        header.setStyleSheet("""
-            QFrame {
-                background-color: rgba(52, 73, 94, 0.8);
-                border-radius: 15px;
-                padding: 20px;
-            }
-        """)
-        
-        layout = QVBoxLayout()
-        
-        title = QLabel("🍓 Raspberry Pi 3B Custom OS Dashboard")
-        title.setStyleSheet("color: white; font-size: 28px; font-weight: bold;")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-        
-        subtitle = QLabel("Live System Monitoring & Control")
-        subtitle.setStyleSheet("color: #ecf0f1; font-size: 14px;")
-        subtitle.setAlignment(Qt.AlignCenter)
-        layout.addWidget(subtitle)
-        
-        header.setLayout(layout)
-        return header
-    
-    def create_info_section(self):
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: rgba(52, 73, 94, 0.8);
-                border-radius: 10px;
-                padding: 15px;
-            }
-        """)
-        
-        layout = QGridLayout()
-        
-        # Hostname
-        layout.addWidget(QLabel("Hostname:"), 0, 0)
-        self.hostname_label = QLabel(socket.gethostname())
-        self.hostname_label.setStyleSheet("color: white; font-weight: bold;")
-        layout.addWidget(self.hostname_label, 0, 1)
-        
-        # IP Address
-        layout.addWidget(QLabel("IP Address:"), 0, 2)
-        self.ip_label = QLabel(self.get_ip())
-        self.ip_label.setStyleSheet("color: white; font-weight: bold;")
-        layout.addWidget(self.ip_label, 0, 3)
-        
-        # Uptime
-        layout.addWidget(QLabel("Uptime:"), 1, 0)
-        self.uptime_label = QLabel(self.get_uptime())
-        self.uptime_label.setStyleSheet("color: white; font-weight: bold;")
-        layout.addWidget(self.uptime_label, 1, 1)
-        
-        # Time
-        layout.addWidget(QLabel("Time:"), 1, 2)
-        self.time_label = QLabel(datetime.now().strftime("%H:%M:%S"))
-        self.time_label.setStyleSheet("color: white; font-weight: bold;")
-        layout.addWidget(self.time_label, 1, 3)
-        
-        for i in range(4):
-            label = layout.itemAtPosition(0, i).widget() if i < 2 else layout.itemAtPosition(1, i-2).widget()
-            if label and isinstance(label, QLabel) and label.text().endswith(':'):
-                label.setStyleSheet("color: #bdc3c7; font-size: 12px;")
-        
-        frame.setLayout(layout)
-        return frame
-    
-    def create_services_section(self):
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: rgba(52, 73, 94, 0.8);
-                border-radius: 10px;
-                padding: 15px;
-            }
-        """)
-        
-        layout = QVBoxLayout()
-        
-        title = QLabel("Services Status")
-        title.setStyleSheet("color: white; font-size: 16px; font-weight: bold;")
-        layout.addWidget(title)
-        
-        services_layout = QGridLayout()
-        services = [
-            "AirPlay Receiver",
-            "Google Cast",
-            "WiFi Security Tools",
-            "Remote Control Server",
-            "File Server (Samba)",
-            "GUI Dashboard"
-        ]
-        
-        for i, service in enumerate(services):
-            row = i // 2
-            col = i % 2
-            services_layout.addWidget(ServiceWidget(service), row, col)
-        
-        layout.addLayout(services_layout)
-        frame.setLayout(layout)
-        return frame
-    
-    def create_features_section(self):
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: rgba(52, 73, 94, 0.8);
-                border-radius: 10px;
-                padding: 15px;
-            }
-        """)
-        
-        layout = QVBoxLayout()
-        
-        title = QLabel("Custom Features")
-        title.setStyleSheet("color: white; font-size: 16px; font-weight: bold;")
-        layout.addWidget(title)
-        
-        features = [
-            "✅ Auto-login and auto-start on boot",
-            "✅ Wireless display (AirPlay & Google Cast)",
-            "✅ Web dashboard accessible on port 8080",
-            "✅ File sharing via Samba network",
-            "✅ WiFi security and monitoring tools",
-            "✅ SSH access enabled by default"
-        ]
-        
-        features_layout = QGridLayout()
-        for i, feature in enumerate(features):
-            row = i // 2
-            col = i % 2
-            label = QLabel(feature)
-            label.setStyleSheet("color: white; font-size: 12px;")
-            features_layout.addWidget(label, row, col)
-        
-        layout.addLayout(features_layout)
-        frame.setLayout(layout)
-        return frame
-    
-    def get_ip(self):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except:
-            return "Not connected"
-    
-    def get_uptime(self):
-        try:
-            with open('/proc/uptime', 'r') as f:
-                uptime_seconds = float(f.readline().split()[0])
-                hours = int(uptime_seconds // 3600)
-                minutes = int((uptime_seconds % 3600) // 60)
-                return f"{hours}h {minutes}m"
-        except:
-            return "Unknown"
+    def run(self):
+        while True:
+            try:
+                stats = {
+                    'cpu': psutil.cpu_percent(interval=1),
+                    'memory': psutil.virtual_memory().percent,
+                    'disk': psutil.disk_usage('/').percent,
+                    'temperature': self.get_temperature(),
+                    'uptime': self.get_uptime(),
+                    'ip': self.get_ip(),
+                    'hostname': self.get_hostname()
+                }
+                self.stats_updated.emit(stats)
+            except Exception as e:
+                print(f"Monitor error: {e}")
+            time.sleep(2)
     
     def get_temperature(self):
         try:
             with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
-                temp = float(f.read()) / 1000.0
-                return f"{temp:.1f}°C"
+                temp = int(f.read()) / 1000
+            return f"{temp:.1f}°C"
         except:
             return "N/A"
     
-    def update_stats(self):
+    def get_uptime(self):
         try:
-            # Update CPU
-            cpu = psutil.cpu_percent(interval=0.1)
-            self.cpu_stat.update_value(f"{cpu:.1f}%")
-            
-            # Update Memory
-            memory = psutil.virtual_memory().percent
-            self.memory_stat.update_value(f"{memory:.1f}%")
-            
-            # Update Disk
-            disk = psutil.disk_usage('/').percent
-            self.disk_stat.update_value(f"{disk:.1f}%")
-            
-            # Update Temperature
-            temp = self.get_temperature()
-            self.temp_stat.update_value(temp)
-            
-            # Update time
-            self.time_label.setText(datetime.now().strftime("%H:%M:%S"))
-            
-            # Update uptime
-            self.uptime_label.setText(self.get_uptime())
-        except Exception as e:
-            print(f"Error updating stats: {e}")
+            uptime = time.time() - psutil.boot_time()
+            hours = int(uptime // 3600)
+            minutes = int((uptime % 3600) // 60)
+            return f"{hours}h {minutes}m"
+        except:
+            return "N/A"
     
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape:
-            self.close()
+    def get_ip(self):
+        try:
+            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=2)
+            return result.stdout.strip().split()[0] if result.stdout.strip() else "N/A"
+        except:
+            return "N/A"
+    
+    def get_hostname(self):
+        try:
+            result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=2)
+            return result.stdout.strip() or "raspberrypi-custom"
+        except:
+            return "raspberrypi-custom"
+
+
+class CustomRaspberryPiDesktop(QMainWindow):
+    """Main desktop window with all features"""
+    
+    def __init__(self):
+        super().__init__()
+        self.init_ui()
+        self.start_monitoring()
+        self.check_services()
+    
+    def init_ui(self):
+        """Initialize the user interface"""
+        self.setWindowTitle("🍓 Raspberry Pi 3B Custom Desktop")
+        self.setGeometry(0, 0, 1024, 600)
+        
+        # Set dark theme with gradient
+        self.setStyleSheet("""
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1a1a2e, stop:0.5 #16213e, stop:1 #0f3460);
+            }
+            QLabel {
+                color: white;
+                font-size: 13px;
+            }
+            QGroupBox {
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid #3498db;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background: rgba(52, 152, 219, 0.1);
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3498db, stop:1 #2980b9);
+                border: none;
+                padding: 10px;
+                border-radius: 6px;
+                color: white;
+                font-weight: bold;
+                font-size: 12px;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #5dade2, stop:1 #3498db);
+            }
+            QPushButton:pressed {
+                background: #2471a3;
+            }
+            QProgressBar {
+                border: 2px solid #34495e;
+                border-radius: 5px;
+                text-align: center;
+                color: white;
+                font-weight: bold;
+                background: #2c3e50;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #e74c3c, stop:0.3 #f39c12, stop:0.6 #f1c40f, stop:1 #27ae60);
+                border-radius: 3px;
+            }
+            QTextEdit {
+                background: #1c2833;
+                color: #ecf0f1;
+                border: 1px solid #34495e;
+                border-radius: 5px;
+                font-family: monospace;
+                font-size: 11px;
+            }
+            QFrame {
+                background: rgba(44, 62, 80, 0.6);
+                border-radius: 8px;
+                border: 1px solid #34495e;
+            }
+        """)
+        
+        # Central widget with scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        
+        central_widget = QWidget()
+        scroll.setWidget(central_widget)
+        self.setCentralWidget(scroll)
+        
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Title
+        title = QLabel("🍓 Raspberry Pi 3B Custom Desktop")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 24px; font-weight: bold; margin: 10px; color: #3498db;")
+        main_layout.addWidget(title)
+        
+        # System info bar
+        info_layout = QHBoxLayout()
+        self.hostname_label = QLabel("Hostname: raspberrypi-custom")
+        self.ip_label = QLabel("IP: Loading...")
+        self.uptime_label = QLabel("Uptime: Loading...")
+        
+        for label in [self.hostname_label, self.ip_label, self.uptime_label]:
+            label.setStyleSheet("font-size: 12px; color: #ecf0f1;")
+            info_layout.addWidget(label)
+        
+        main_layout.addLayout(info_layout)
+        
+        # System monitoring section
+        system_group = QGroupBox("📊 System Monitor")
+        system_layout = QVBoxLayout()
+        
+        # Stats labels
+        stats_layout = QGridLayout()
+        self.cpu_label = QLabel("CPU: --")
+        self.memory_label = QLabel("Memory: --")
+        self.disk_label = QLabel("Disk: --")
+        self.temp_label = QLabel("Temperature: --")
+        
+        stats_layout.addWidget(self.cpu_label, 0, 0)
+        stats_layout.addWidget(self.memory_label, 0, 1)
+        stats_layout.addWidget(self.disk_label, 1, 0)
+        stats_layout.addWidget(self.temp_label, 1, 1)
+        system_layout.addLayout(stats_layout)
+        
+        # Progress bars
+        self.cpu_bar = QProgressBar()
+        self.memory_bar = QProgressBar()
+        self.disk_bar = QProgressBar()
+        
+        system_layout.addWidget(QLabel("CPU Usage:"))
+        system_layout.addWidget(self.cpu_bar)
+        system_layout.addWidget(QLabel("Memory Usage:"))
+        system_layout.addWidget(self.memory_bar)
+        system_layout.addWidget(QLabel("Disk Usage:"))
+        system_layout.addWidget(self.disk_bar)
+        
+        system_group.setLayout(system_layout)
+        main_layout.addWidget(system_group)
+        
+        # Services section
+        services_group = QGroupBox("🔧 Services")
+        services_layout = QVBoxLayout()
+        
+        # Services status display
+        self.services_text = QTextEdit()
+        self.services_text.setReadOnly(True)
+        self.services_text.setMaximumHeight(120)
+        services_layout.addWidget(self.services_text)
+        
+        # Service control buttons
+        buttons_layout = QGridLayout()
+        
+        self.airplay_btn = QPushButton("📱 AirPlay Receiver")
+        self.airplay_btn.clicked.connect(lambda: self.toggle_service('shairport-sync', 'AirPlay'))
+        
+        self.cast_btn = QPushButton("📲 Google Cast")
+        self.cast_btn.clicked.connect(lambda: self.start_cast())
+        
+        self.web_btn = QPushButton("🌐 Web Dashboard")
+        self.web_btn.clicked.connect(self.open_web_dashboard)
+        
+        self.files_btn = QPushButton("📁 File Sharing")
+        self.files_btn.clicked.connect(lambda: self.toggle_service('smbd', 'Samba'))
+        
+        self.refresh_btn = QPushButton("🔄 Refresh Services")
+        self.refresh_btn.clicked.connect(self.check_services)
+        
+        self.terminal_btn = QPushButton("⌨️  Terminal")
+        self.terminal_btn.clicked.connect(self.open_terminal)
+        
+        buttons_layout.addWidget(self.airplay_btn, 0, 0)
+        buttons_layout.addWidget(self.cast_btn, 0, 1)
+        buttons_layout.addWidget(self.web_btn, 0, 2)
+        buttons_layout.addWidget(self.files_btn, 1, 0)
+        buttons_layout.addWidget(self.refresh_btn, 1, 1)
+        buttons_layout.addWidget(self.terminal_btn, 1, 2)
+        
+        services_layout.addLayout(buttons_layout)
+        services_group.setLayout(services_layout)
+        main_layout.addWidget(services_group)
+        
+        # Quick actions
+        actions_group = QGroupBox("⚡ Quick Actions")
+        actions_layout = QHBoxLayout()
+        
+        self.reboot_btn = QPushButton("🔄 Reboot")
+        self.reboot_btn.clicked.connect(self.reboot_system)
+        self.reboot_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e67e22, stop:1 #d35400);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f39c12, stop:1 #e67e22);
+            }
+        """)
+        
+        self.shutdown_btn = QPushButton("⏻ Shutdown")
+        self.shutdown_btn.clicked.connect(self.shutdown_system)
+        self.shutdown_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c0392b, stop:1 #a93226);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #c0392b);
+            }
+        """)
+        
+        actions_layout.addWidget(self.reboot_btn)
+        actions_layout.addWidget(self.shutdown_btn)
+        actions_group.setLayout(actions_layout)
+        main_layout.addWidget(actions_group)
+        
+        # Status bar
+        self.statusBar().showMessage("✅ Custom Desktop Ready - All systems operational")
+        self.statusBar().setStyleSheet("background: #2c3e50; color: white; font-weight: bold;")
+    
+    def start_monitoring(self):
+        """Start background system monitoring"""
+        self.monitor = SystemMonitor()
+        self.monitor.stats_updated.connect(self.update_stats)
+        self.monitor.start()
+    
+    def update_stats(self, stats):
+        """Update system statistics display"""
+        self.cpu_label.setText(f"CPU: {stats['cpu']:.1f}%")
+        self.memory_label.setText(f"Memory: {stats['memory']:.1f}%")
+        self.disk_label.setText(f"Disk: {stats['disk']:.1f}%")
+        self.temp_label.setText(f"Temperature: {stats['temperature']}")
+        self.uptime_label.setText(f"Uptime: {stats['uptime']}")
+        self.ip_label.setText(f"IP: {stats['ip']}")
+        self.hostname_label.setText(f"Hostname: {stats['hostname']}")
+        
+        self.cpu_bar.setValue(int(stats['cpu']))
+        self.memory_bar.setValue(int(stats['memory']))
+        self.disk_bar.setValue(int(stats['disk']))
+    
+    def check_services(self):
+        """Check status of all services"""
+        services = [
+            ('ssh', 'SSH Server'),
+            ('shairport-sync', 'AirPlay Receiver'),
+            ('avahi-daemon', 'Network Discovery'),
+            ('smbd', 'File Sharing (Samba)'),
+            ('nginx', 'Web Server'),
+            ('lightdm', 'Desktop Manager')
+        ]
+        
+        status_text = "🟢 Services Status:\n\n"
+        
+        for service, name in services:
+            try:
+                result = subprocess.run(
+                    ['systemctl', 'is-active', service],
+                    capture_output=True, text=True, timeout=2
+                )
+                is_active = result.stdout.strip() == 'active'
+                icon = "🟢" if is_active else "🔴"
+                status = "Running" if is_active else "Stopped"
+                status_text += f"{icon} {name}: {status}\n"
+            except:
+                status_text += f"❓ {name}: Unknown\n"
+        
+        self.services_text.setText(status_text)
+        self.statusBar().showMessage(f"✅ Services checked at {time.strftime('%H:%M:%S')}")
+    
+    def toggle_service(self, service, name):
+        """Toggle a service on/off"""
+        try:
+            # Check current status
+            result = subprocess.run(
+                ['systemctl', 'is-active', service],
+                capture_output=True, text=True, timeout=2
+            )
+            is_active = result.stdout.strip() == 'active'
+            
+            # Toggle
+            action = 'stop' if is_active else 'start'
+            subprocess.run(['sudo', 'systemctl', action, service], check=True, timeout=5)
+            
+            self.statusBar().showMessage(f"✅ {name} {action}ed successfully")
+            
+            # Refresh services display
+            QTimer.singleShot(1000, self.check_services)
+            
+        except Exception as e:
+            self.statusBar().showMessage(f"❌ Failed to toggle {name}: {str(e)}")
+    
+    def start_cast(self):
+        """Start Google Cast service"""
+        try:
+            subprocess.Popen(
+                ['python3', '-m', 'http.server', '8008'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            self.statusBar().showMessage("✅ Google Cast service started on port 8008")
+        except Exception as e:
+            self.statusBar().showMessage(f"❌ Failed to start Cast: {str(e)}")
+    
+    def open_web_dashboard(self):
+        """Open web dashboard in browser"""
+        try:
+            subprocess.Popen(['chromium-browser', 'http://localhost:8080'])
+            self.statusBar().showMessage("✅ Opening web dashboard...")
+        except:
+            self.statusBar().showMessage("❌ Failed to open browser")
+    
+    def open_terminal(self):
+        """Open terminal"""
+        try:
+            subprocess.Popen(['lxterminal'])
+            self.statusBar().showMessage("✅ Terminal opened")
+        except:
+            self.statusBar().showMessage("❌ Failed to open terminal")
+    
+    def reboot_system(self):
+        """Reboot the system"""
+        self.statusBar().showMessage("🔄 Rebooting system...")
+        QTimer.singleShot(1000, lambda: subprocess.run(['sudo', 'reboot']))
+    
+    def shutdown_system(self):
+        """Shutdown the system"""
+        self.statusBar().showMessage("⏻ Shutting down system...")
+        QTimer.singleShot(1000, lambda: subprocess.run(['sudo', 'shutdown', '-h', 'now']))
+
 
 def main():
+    """Main application entry point"""
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Use Fusion style for better appearance
+    app.setApplicationName("Raspberry Pi Custom Desktop")
+    app.setStyle('Fusion')  # Modern style
     
-    # Set dark palette
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor(53, 53, 53))
-    palette.setColor(QPalette.WindowText, Qt.white)
-    palette.setColor(QPalette.Base, QColor(25, 25, 25))
-    palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-    palette.setColor(QPalette.ToolTipBase, Qt.white)
-    palette.setColor(QPalette.ToolTipText, Qt.white)
-    palette.setColor(QPalette.Text, Qt.white)
-    palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    palette.setColor(QPalette.ButtonText, Qt.white)
-    palette.setColor(QPalette.BrightText, Qt.red)
-    palette.setColor(QPalette.Link, QColor(42, 130, 218))
-    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-    palette.setColor(QPalette.HighlightedText, Qt.black)
-    app.setPalette(palette)
-    
-    window = RaspberryPiDashboard()
-    window.showFullScreen()
+    # Create and show main window
+    window = CustomRaspberryPiDesktop()
+    window.showFullScreen()  # Start fullscreen
     
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()

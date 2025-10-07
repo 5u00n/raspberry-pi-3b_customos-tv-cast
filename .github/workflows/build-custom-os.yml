@@ -1,201 +1,200 @@
 name: Build Custom Raspberry Pi OS
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Allow manual trigger
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
+    workflow_dispatch: # Allow manual trigger
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        submodules: 'true'
-    
-    - name: Free up disk space
-      run: |
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /opt/ghc
-        sudo rm -rf "/usr/local/share/boost"
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo apt-get clean
-        df -h
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap zerofree zip \
-          dosfstools libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc \
-          qemu-utils kpartx
-    
-    - name: Clone pi-gen
-      run: |
-        if [ ! -d "pi-gen" ]; then
-          git clone https://github.com/RPi-Distro/pi-gen.git
-        fi
-    
-    - name: Configure pi-gen
-      run: |
-        cd pi-gen
-        
-        # Create config
-        cat > config << 'EOF'
-        IMG_NAME='CustomRaspberryPi3B'
-        RELEASE=bookworm
-        DEPLOY_COMPRESSION=zip
-        ENABLE_SSH=1
-        STAGE_LIST="stage0 stage1 stage2"
-        TARGET_HOSTNAME=raspberrypi-custom
-        FIRST_USER_NAME=pi
-        FIRST_USER_PASS=raspberry
-        DISABLE_FIRST_BOOT_USER_RENAME=1
-        EOF
-        
-        # Clean previous builds
-        sudo rm -rf work deploy
-        
-        # Create stage3 with custom packages
-        sudo rm -rf stage3
-        mkdir -p stage3/00-install-packages
-        
-        cat > stage3/00-install-packages/00-packages << 'EOFPKG'
-        python3
-        python3-pip
-        python3-pyqt5
-        python3-psutil
-        xserver-xorg
-        xinit
-        lightdm
-        lxde-core
-        openbox
-        pcmanfm
-        lxterminal
-        shairport-sync
-        avahi-daemon
-        samba
-        nginx
-        iw
-        wireless-tools
-        chromium-browser
-        EOFPKG
-        
-        cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
-        #!/bin/bash -e
-        on_chroot << EOFCHROOT
-        apt-get update
-        apt-get upgrade -y
-        pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
-        systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
-        systemctl set-default graphical.target
-        EOFCHROOT
-        EOFRUN
-        
-        chmod +x stage3/00-install-packages/00-run.sh
-        
-        # Add GUI configuration
-        mkdir -p stage3/01-custom-gui/files
-        
-        # Copy GUI file if exists
-        if [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
-          cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage3/01-custom-gui/files/
-        fi
-        
-        cat > stage3/01-custom-gui/00-run.sh << 'EOFGUI'
-        #!/bin/bash -e
-        on_chroot << EOFCHROOT
-        mkdir -p /usr/local/bin
-        mkdir -p /home/pi/.config/autostart
-        
-        # Configure auto-login
-        mkdir -p /etc/systemd/system/getty@tty1.service.d
-        cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
-        [Service]
-        ExecStart=
-        ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
-        AUTOLOGIN
-        
-        mkdir -p /etc/lightdm/lightdm.conf.d
-        cat > /etc/lightdm/lightdm.conf.d/01-autologin.conf << 'LIGHTDM'
-        [Seat:*]
-        autologin-user=pi
-        autologin-user-timeout=0
-        LIGHTDM
-        
-        # Configure Samba
-        cat >> /etc/samba/smb.conf << 'SAMBA'
-        
-        [pi]
-           path = /home/pi
-           browseable = yes
-           read only = no
-           guest ok = no
-        SAMBA
-        
-        (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
-        
-        chown -R 1000:1000 /home/pi/.config || true
-        EOFCHROOT
-        EOFGUI
-        
-        chmod +x stage3/01-custom-gui/00-run.sh
-        
-        # Mark for export
-        touch stage3/EXPORT_IMAGE
-        
-        echo "✅ pi-gen configured with custom packages"
-    
-    - name: Build Custom OS
-      run: |
-        cd pi-gen
-        # Run build script with sudo
-        sudo ./build.sh
-    
-    - name: List generated files
-      run: |
-        cd pi-gen/deploy
-        ls -lh
-        echo "Build complete!"
-    
-    - name: Upload Custom OS Image
-      uses: actions/upload-artifact@v3
-      with:
-        name: custom-raspberry-pi-os
-        path: pi-gen/deploy/*.zip
-        retention-days: 30
-    
-    - name: Create release info
-      run: |
-        cd pi-gen/deploy
-        echo "# Custom Raspberry Pi OS Build" > release-info.txt
-        echo "" >> release-info.txt
-        echo "Build Date: $(date)" >> release-info.txt
-        echo "Image Name: CustomRaspberryPi3B" >> release-info.txt
-        echo "" >> release-info.txt
-        echo "## Features Included:" >> release-info.txt
-        echo "- Desktop environment (LXDE)" >> release-info.txt
-        echo "- Python 3 + PyQt5" >> release-info.txt
-        echo "- AirPlay receiver (shairport-sync)" >> release-info.txt
-        echo "- Google Cast support" >> release-info.txt
-        echo "- Web dashboard (Nginx)" >> release-info.txt
-        echo "- File sharing (Samba)" >> release-info.txt
-        echo "- SSH enabled" >> release-info.txt
-        echo "- WiFi tools" >> release-info.txt
-        echo "- Auto-login as 'pi'" >> release-info.txt
-        echo "" >> release-info.txt
-        echo "## Default Credentials:" >> release-info.txt
-        echo "- Username: pi" >> release-info.txt
-        echo "- Password: raspberry" >> release-info.txt
-        echo "- Hostname: raspberrypi-custom" >> release-info.txt
-        cat release-info.txt
-    
-    - name: Upload release info
-      uses: actions/upload-artifact@v3
-      with:
-        name: release-info
-        path: pi-gen/deploy/release-info.txt
+    build:
+        runs-on: ubuntu-latest
 
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+              with:
+                  submodules: "true"
+
+            - name: Free up disk space
+              run: |
+                  sudo rm -rf /usr/share/dotnet
+                  sudo rm -rf /opt/ghc
+                  sudo rm -rf "/usr/local/share/boost"
+                  sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+                  sudo apt-get clean
+                  df -h
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap zerofree zip \
+                    dosfstools libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc \
+                    qemu-utils kpartx
+
+            - name: Clone pi-gen
+              run: |
+                  if [ ! -d "pi-gen" ]; then
+                    git clone https://github.com/RPi-Distro/pi-gen.git
+                  fi
+
+            - name: Configure pi-gen
+              run: |
+                  cd pi-gen
+
+                  # Create config
+                  cat > config << 'EOF'
+                  IMG_NAME='CustomRaspberryPi3B'
+                  RELEASE=bookworm
+                  DEPLOY_COMPRESSION=zip
+                  ENABLE_SSH=1
+                  STAGE_LIST="stage0 stage1 stage2"
+                  TARGET_HOSTNAME=raspberrypi-custom
+                  FIRST_USER_NAME=pi
+                  FIRST_USER_PASS=raspberry
+                  DISABLE_FIRST_BOOT_USER_RENAME=1
+                  EOF
+
+                  # Clean previous builds
+                  sudo rm -rf work deploy
+
+                  # Create stage3 with custom packages
+                  sudo rm -rf stage3
+                  mkdir -p stage3/00-install-packages
+
+                  cat > stage3/00-install-packages/00-packages << 'EOFPKG'
+                  python3
+                  python3-pip
+                  python3-pyqt5
+                  python3-psutil
+                  xserver-xorg
+                  xinit
+                  lightdm
+                  lxde-core
+                  openbox
+                  pcmanfm
+                  lxterminal
+                  shairport-sync
+                  avahi-daemon
+                  samba
+                  nginx
+                  iw
+                  wireless-tools
+                  chromium-browser
+                  EOFPKG
+
+                  cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  apt-get update
+                  apt-get upgrade -y
+                  pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
+                  systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
+                  systemctl set-default graphical.target
+                  EOFCHROOT
+                  EOFRUN
+
+                  chmod +x stage3/00-install-packages/00-run.sh
+
+                  # Add GUI configuration
+                  mkdir -p stage3/01-custom-gui/files
+
+                  # Copy GUI file if exists
+                  if [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+                    cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage3/01-custom-gui/files/
+                  fi
+
+                  cat > stage3/01-custom-gui/00-run.sh << 'EOFGUI'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  mkdir -p /usr/local/bin
+                  mkdir -p /home/pi/.config/autostart
+
+                  # Configure auto-login
+                  mkdir -p /etc/systemd/system/getty@tty1.service.d
+                  cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
+                  [Service]
+                  ExecStart=
+                  ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+                  AUTOLOGIN
+
+                  mkdir -p /etc/lightdm/lightdm.conf.d
+                  cat > /etc/lightdm/lightdm.conf.d/01-autologin.conf << 'LIGHTDM'
+                  [Seat:*]
+                  autologin-user=pi
+                  autologin-user-timeout=0
+                  LIGHTDM
+
+                  # Configure Samba
+                  cat >> /etc/samba/smb.conf << 'SAMBA'
+
+                  [pi]
+                     path = /home/pi
+                     browseable = yes
+                     read only = no
+                     guest ok = no
+                  SAMBA
+
+                  (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
+
+                  chown -R 1000:1000 /home/pi/.config || true
+                  EOFCHROOT
+                  EOFGUI
+
+                  chmod +x stage3/01-custom-gui/00-run.sh
+
+                  # Mark for export
+                  touch stage3/EXPORT_IMAGE
+
+                  echo "✅ pi-gen configured with custom packages"
+
+            - name: Build Custom OS
+              run: |
+                  cd pi-gen
+                  # Run build script with sudo
+                  sudo ./build.sh
+
+            - name: List generated files
+              run: |
+                  cd pi-gen/deploy
+                  ls -lh
+                  echo "Build complete!"
+
+            - name: Upload Custom OS Image
+              uses: actions/upload-artifact@v3
+              with:
+                  name: custom-raspberry-pi-os
+                  path: pi-gen/deploy/*.zip
+                  retention-days: 30
+
+            - name: Create release info
+              run: |
+                  cd pi-gen/deploy
+                  echo "# Custom Raspberry Pi OS Build" > release-info.txt
+                  echo "" >> release-info.txt
+                  echo "Build Date: $(date)" >> release-info.txt
+                  echo "Image Name: CustomRaspberryPi3B" >> release-info.txt
+                  echo "" >> release-info.txt
+                  echo "## Features Included:" >> release-info.txt
+                  echo "- Desktop environment (LXDE)" >> release-info.txt
+                  echo "- Python 3 + PyQt5" >> release-info.txt
+                  echo "- AirPlay receiver (shairport-sync)" >> release-info.txt
+                  echo "- Google Cast support" >> release-info.txt
+                  echo "- Web dashboard (Nginx)" >> release-info.txt
+                  echo "- File sharing (Samba)" >> release-info.txt
+                  echo "- SSH enabled" >> release-info.txt
+                  echo "- WiFi tools" >> release-info.txt
+                  echo "- Auto-login as 'pi'" >> release-info.txt
+                  echo "" >> release-info.txt
+                  echo "## Default Credentials:" >> release-info.txt
+                  echo "- Username: pi" >> release-info.txt
+                  echo "- Password: raspberry" >> release-info.txt
+                  echo "- Hostname: raspberrypi-custom" >> release-info.txt
+                  cat release-info.txt
+
+            - name: Upload release info
+              uses: actions/upload-artifact@v3
+              with:
+                  name: release-info
+                  path: pi-gen/deploy/release-info.txt
