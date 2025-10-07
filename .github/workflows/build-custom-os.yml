@@ -35,13 +35,18 @@ jobs:
 
       - name: Clone pi-gen
         run: |
-          if [ ! -d "pi-gen" ]; then
-            git clone https://github.com/RPi-Distro/pi-gen.git
-          fi
+          rm -rf pi-gen
+          git clone https://github.com/RPi-Distro/pi-gen.git
+          cd pi-gen
+          # Use 2024 branch which supports bookworm
+          git checkout 2024-07-04-raspios-bookworm || git checkout master
 
       - name: Configure pi-gen
         run: |
           cd pi-gen
+
+          # Clean previous builds first
+          sudo rm -rf work deploy
 
           # Create config
           cat > config << 'EOF'
@@ -54,10 +59,8 @@ jobs:
           FIRST_USER_NAME=pi
           FIRST_USER_PASS=raspberry
           DISABLE_FIRST_BOOT_USER_RENAME=1
+          DEPLOY_ZIP=1
           EOF
-
-          # Clean previous builds
-          sudo rm -rf work deploy
 
           # Create stage3 with custom packages
           sudo rm -rf stage3
