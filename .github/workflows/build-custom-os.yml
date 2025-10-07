@@ -65,7 +65,7 @@ jobs:
           # Create stage3 with custom packages
           sudo rm -rf stage3
           mkdir -p stage3/00-install-packages
-          
+
           # Create prerun.sh to properly initialize stage3
           cat > stage3/prerun.sh << 'PRERUN'
           #!/bin/bash -e
@@ -76,10 +76,16 @@ jobs:
           chmod +x stage3/prerun.sh
 
           cat > stage3/00-install-packages/00-packages << 'EOFPKG'
+          # Core Python packages
           python3
           python3-pip
           python3-pyqt5
           python3-psutil
+          python3-requests
+          python3-flask
+          python3-flask-cors
+          
+          # Desktop environment
           xserver-xorg
           xinit
           lightdm
@@ -87,13 +93,50 @@ jobs:
           openbox
           pcmanfm
           lxterminal
+          
+          # AirPlay and audio
           shairport-sync
           avahi-daemon
+          avahi-utils
+          alsa-utils
+          pulseaudio
+          pulseaudio-utils
+          
+          # Network discovery and services
           samba
+          samba-common-bin
           nginx
+          openssh-server
+          
+          # WiFi and networking
           iw
           wireless-tools
+          hostapd
+          dnsmasq
+          wpasupplicant
+          net-tools
+          iputils-ping
+          curl
+          wget
+          
+          # Web browsers and media
           chromium-browser
+          firefox-esr
+          
+          # Additional casting/streaming packages
+          vlc
+          ffmpeg
+          youtube-dl
+          nodejs
+          npm
+          
+          # System utilities
+          htop
+          nano
+          vim
+          git
+          unzip
+          zip
           EOFPKG
 
           cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
@@ -518,6 +561,295 @@ jobs:
           WEBRUN
 
           chmod +x stage3/02-web-dashboard/00-run.sh
+
+          # Add advanced casting services
+          mkdir -p stage3/03-advanced-casting/files
+          
+          cat > stage3/03-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
+          #!/usr/bin/env python3
+          import subprocess
+          import os
+          import signal
+          import sys
+          
+          class AirPlayReceiver:
+              def __init__(self):
+                  self.process = None
+              
+              def start(self):
+                  try:
+                      # Start shairport-sync with enhanced configuration
+                      cmd = [
+                          'shairport-sync',
+                          '--name', 'Raspberry Pi Custom OS',
+                          '--output', 'alsa',
+                          '--mixer', 'PCM',
+                          '--volume-range-db', '20',
+                          '--log-level', 'info'
+                      ]
+                      self.process = subprocess.Popen(cmd)
+                      print("AirPlay receiver started successfully")
+                      return True
+                  except Exception as e:
+                      print(f"Failed to start AirPlay receiver: {e}")
+                      return False
+              
+              def stop(self):
+                  if self.process:
+                      self.process.terminate()
+                      self.process.wait()
+                      print("AirPlay receiver stopped")
+              
+              def restart(self):
+                  self.stop()
+                  return self.start()
+          
+          if __name__ == '__main__':
+              receiver = AirPlayReceiver()
+              
+              def signal_handler(sig, frame):
+                  receiver.stop()
+                  sys.exit(0)
+              
+              signal.signal(signal.SIGINT, signal_handler)
+              signal.signal(signal.SIGTERM, signal_handler)
+              
+              if receiver.start():
+                  try:
+                      receiver.process.wait()
+                  except KeyboardInterrupt:
+                      receiver.stop()
+          AIRPLAY
+
+          cat > stage3/03-advanced-casting/files/miracast-receiver.py << 'MIRACAST'
+          #!/usr/bin/env python3
+          import subprocess
+          import os
+          import signal
+          import sys
+          
+          class MiracastReceiver:
+              def __init__(self):
+                  self.process = None
+              
+              def start(self):
+                  try:
+                      # Use VLC for Miracast-like functionality
+                      cmd = [
+                          'vlc',
+                          '--intf', 'http',
+                          '--http-port', '8082',
+                          '--extraintf', 'http',
+                          '--sout', '#display'
+                      ]
+                      self.process = subprocess.Popen(cmd)
+                      print("Miracast receiver started on port 8082")
+                      return True
+                  except Exception as e:
+                      print(f"Failed to start Miracast receiver: {e}")
+                      return False
+              
+              def stop(self):
+                  if self.process:
+                      self.process.terminate()
+                      self.process.wait()
+                      print("Miracast receiver stopped")
+          
+          if __name__ == '__main__':
+              receiver = MiracastReceiver()
+              
+              def signal_handler(sig, frame):
+                  receiver.stop()
+                  sys.exit(0)
+              
+              signal.signal(signal.SIGINT, signal_handler)
+              signal.signal(signal.SIGTERM, signal_handler)
+              
+              if receiver.start():
+                  try:
+                      receiver.process.wait()
+                  except KeyboardInterrupt:
+                      receiver.stop()
+          MIRACAST
+
+          cat > stage3/03-advanced-casting/files/dlna-server.py << 'DLNA'
+          #!/usr/bin/env python3
+          import http.server
+          import socketserver
+          import json
+          import os
+          import mimetypes
+          from urllib.parse import urlparse, unquote
+          
+          class DLNAServer:
+              def __init__(self, port=8083, media_dir="/home/pi/Media"):
+                  self.port = port
+                  self.media_dir = media_dir
+                  os.makedirs(media_dir, exist_ok=True)
+              
+              def start(self):
+                  handler = self.create_handler()
+                  with socketserver.TCPServer(("", self.port), handler) as httpd:
+                      print(f"DLNA server running on port {self.port}")
+                      print(f"Media directory: {self.media_dir}")
+                      httpd.serve_forever()
+              
+              def create_handler(self):
+                  class DLNAHandler(http.server.SimpleHTTPRequestHandler):
+                      def __init__(self, *args, **kwargs):
+                          super().__init__(*args, directory=self.media_dir, **kwargs)
+                      
+                      def do_GET(self):
+                          if self.path == '/':
+                              self.send_response(200)
+                              self.send_header('Content-type', 'text/html')
+                              self.end_headers()
+                              self.wfile.write(b'''
+                              <h1>DLNA Media Server</h1>
+                              <p>Media files available for streaming</p>
+                              <ul>
+                              <li><a href="/">Browse Media</a></li>
+                              </ul>
+                              ''')
+                          else:
+                              super().do_GET()
+                      
+                      def do_POST(self):
+                          if self.path == '/upload':
+                              content_length = int(self.headers['Content-Length'])
+                              post_data = self.rfile.read(content_length)
+                              # Handle file upload
+                              self.send_response(200)
+                              self.send_header('Content-type', 'application/json')
+                              self.end_headers()
+                              self.wfile.write(json.dumps({'status': 'uploaded'}).encode())
+                          else:
+                              super().do_POST()
+                  
+                  return DLNAHandler
+          
+          if __name__ == '__main__':
+              server = DLNAServer()
+              server.start()
+          DLNA
+
+          cat > stage3/03-advanced-casting/00-run.sh << 'CASTING'
+          #!/bin/bash -e
+          if [ -d "${ROOTFS_DIR}" ]; then
+            on_chroot << EOFCHROOT
+          # Install advanced casting services
+          install -m 755 /tmp/files/airplay-receiver.py /usr/local/bin/
+          install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
+          install -m 755 /tmp/files/dlna-server.py /usr/local/bin/
+          
+          # Create systemd services for advanced casting
+          cat > /etc/systemd/system/airplay-receiver.service << 'AIRPLAYSERVICE'
+          [Unit]
+          Description=Enhanced AirPlay Receiver
+          After=network.target sound.target
+          
+          [Service]
+          Type=simple
+          User=pi
+          WorkingDirectory=/home/pi
+          ExecStart=/usr/bin/python3 /usr/local/bin/airplay-receiver.py
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+          AIRPLAYSERVICE
+          
+          cat > /etc/systemd/system/miracast-receiver.service << 'MIRACASTSERVICE'
+          [Unit]
+          Description=Miracast Receiver (VLC)
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=pi
+          WorkingDirectory=/home/pi
+          ExecStart=/usr/bin/python3 /usr/local/bin/miracast-receiver.py
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+          MIRACASTSERVICE
+          
+          cat > /etc/systemd/system/dlna-server.service << 'DLNASERVICE'
+          [Unit]
+          Description=DLNA Media Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=pi
+          WorkingDirectory=/home/pi
+          ExecStart=/usr/bin/python3 /usr/local/bin/dlna-server.py
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+          DLNASERVICE
+          
+          # Enable all casting services
+          systemctl enable airplay-receiver.service
+          systemctl enable miracast-receiver.service
+          systemctl enable dlna-server.service
+          
+          # Create media directory
+          mkdir -p /home/pi/Media
+          chown -R pi:pi /home/pi/Media
+          
+          # Install additional Python packages for casting
+          pip3 install --break-system-packages pychromecast || pip3 install pychromecast
+          pip3 install --break-system-packages zeroconf || pip3 install zeroconf
+          
+          # Configure enhanced shairport-sync
+          cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
+          general = {
+              name = "Raspberry Pi Custom OS";
+              output_backend = "alsa";
+              mixer_control_name = "PCM";
+              volume_range_db = 20;
+              log_level = 1;
+              log_verbosity = 1;
+          }
+          
+          alsa = {
+              output_device = "hw:0";
+              mixer_control_name = "PCM";
+              mixer_device = "hw:0";
+          }
+          
+          sessioncontrol = {
+              session_timeout = 20;
+          }
+          ENHANCED_SHAIRPORT
+          
+          # Configure PulseAudio for better audio
+          cat > /etc/pulse/default.pa << 'PULSEAUDIO'
+          load-module module-device-restore
+          load-module module-stream-restore
+          load-module module-card-restore
+          load-module module-augment-properties
+          load-module module-switch-on-port-available
+          load-module module-alsa-sink
+          load-module module-alsa-source device=hw:1,0
+          load-module module-native-protocol-unix
+          PULSEAUDIO
+          
+          # Set up audio permissions
+          usermod -a -G audio pi
+          usermod -a -G pulse pi
+          usermod -a -G pulse-access pi
+          
+          EOFCHROOT
+          else
+            echo "Rootfs not found, skipping advanced casting configuration"
+          fi
+          CASTING
+
+          chmod +x stage3/03-advanced-casting/00-run.sh
 
           # Mark for export
           touch stage3/EXPORT_IMAGE
