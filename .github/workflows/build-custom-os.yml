@@ -69,11 +69,39 @@ jobs:
           # Create prerun.sh to properly initialize stage3
           cat > stage3/prerun.sh << 'PRERUN'
           #!/bin/bash -e
-          if [ -d "${STAGE_WORK_DIR}/rootfs" ]; then
-            cp -a "${STAGE_WORK_DIR}/rootfs" "${STAGE_WORK_DIR}/rootfs.orig"
+          # Copy rootfs from previous stage
+          if [ -d "${PREV_ROOTFS_DIR}" ]; then
+            echo "Copying rootfs from previous stage..."
+            cp -a "${PREV_ROOTFS_DIR}" "${ROOTFS_DIR}"
+            echo "Rootfs copied successfully"
+          else
+            echo "Previous rootfs not found, creating new one..."
+            mkdir -p "${ROOTFS_DIR}"
           fi
+          
+          # Ensure required directories exist
+          mkdir -p "${ROOTFS_DIR}/proc"
+          mkdir -p "${ROOTFS_DIR}/dev"
+          mkdir -p "${ROOTFS_DIR}/dev/pts"
+          mkdir -p "${ROOTFS_DIR}/sys"
+          mkdir -p "${ROOTFS_DIR}/run"
+          mkdir -p "${ROOTFS_DIR}/tmp"
+          mkdir -p "${ROOTFS_DIR}/var/lib/dpkg"
+          mkdir -p "${ROOTFS_DIR}/var/cache/apt/archives"
+          
+          echo "Stage3 rootfs initialized"
           PRERUN
           chmod +x stage3/prerun.sh
+
+          # Create postrun.sh for cleanup
+          cat > stage3/postrun.sh << 'POSTRUN'
+          #!/bin/bash -e
+          echo "Stage3 postrun: Cleaning up..."
+          # Clean up any temporary files
+          rm -rf "${ROOTFS_DIR}/tmp/*" 2>/dev/null || true
+          echo "Stage3 postrun complete"
+          POSTRUN
+          chmod +x stage3/postrun.sh
 
           cat > stage3/00-install-packages/00-packages << 'EOFPKG'
           # Core Python packages
@@ -853,6 +881,9 @@ jobs:
 
           # Mark for export
           touch stage3/EXPORT_IMAGE
+          
+          # Ensure stage3 doesn't skip
+          rm -f stage3/SKIP
 
           echo "✅ pi-gen configured with custom packages"
 
