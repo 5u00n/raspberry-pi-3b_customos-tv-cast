@@ -54,7 +54,7 @@ jobs:
           RELEASE=bookworm
           DEPLOY_COMPRESSION=zip
           ENABLE_SSH=1
-          STAGE_LIST="stage0 stage1 stage2 stage3"
+          STAGE_LIST="stage0 stage1 stage2"
           TARGET_HOSTNAME=raspberrypi-custom
           FIRST_USER_NAME=pi
           FIRST_USER_PASS=raspberry
@@ -62,48 +62,10 @@ jobs:
           DEPLOY_ZIP=1
           EOF
 
-          # Create stage3 with custom packages
-          sudo rm -rf stage3
-          mkdir -p stage3/00-install-packages
+          # Add custom packages to stage2 instead of creating stage3
+          mkdir -p stage2/99-custom-packages
 
-          # Create prerun.sh to properly initialize stage3
-          cat > stage3/prerun.sh << 'PRERUN'
-          #!/bin/bash -e
-          # Copy rootfs from previous stage
-          if [ -d "${PREV_ROOTFS_DIR}" ]; then
-            echo "Copying rootfs from previous stage..."
-            cp -a "${PREV_ROOTFS_DIR}" "${ROOTFS_DIR}"
-            echo "Rootfs copied successfully"
-          else
-            echo "Previous rootfs not found, creating new one..."
-            mkdir -p "${ROOTFS_DIR}"
-          fi
-
-          # Ensure required directories exist
-          mkdir -p "${ROOTFS_DIR}/proc"
-          mkdir -p "${ROOTFS_DIR}/dev"
-          mkdir -p "${ROOTFS_DIR}/dev/pts"
-          mkdir -p "${ROOTFS_DIR}/sys"
-          mkdir -p "${ROOTFS_DIR}/run"
-          mkdir -p "${ROOTFS_DIR}/tmp"
-          mkdir -p "${ROOTFS_DIR}/var/lib/dpkg"
-          mkdir -p "${ROOTFS_DIR}/var/cache/apt/archives"
-
-          echo "Stage3 rootfs initialized"
-          PRERUN
-          chmod +x stage3/prerun.sh
-
-          # Create postrun.sh for cleanup
-          cat > stage3/postrun.sh << 'POSTRUN'
-          #!/bin/bash -e
-          echo "Stage3 postrun: Cleaning up..."
-          # Clean up any temporary files
-          rm -rf "${ROOTFS_DIR}/tmp/*" 2>/dev/null || true
-          echo "Stage3 postrun complete"
-          POSTRUN
-          chmod +x stage3/postrun.sh
-
-          cat > stage3/00-install-packages/00-packages << 'EOFPKG'
+          cat > stage2/99-custom-packages/00-packages << 'EOFPKG'
           # Core Python packages
           python3
           python3-pip
@@ -167,35 +129,30 @@ jobs:
           zip
           EOFPKG
 
-          cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
+          cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
           #!/bin/bash -e
-          if [ -d "${ROOTFS_DIR}" ]; then
-            on_chroot << EOFCHROOT
-            apt-get update
-            apt-get upgrade -y
-            pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
-            systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
-            systemctl set-default graphical.target
-            EOFCHROOT
-          else
-            echo "Rootfs not found, skipping package installation"
-          fi
+          on_chroot << EOFCHROOT
+          apt-get update
+          apt-get upgrade -y
+          pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
+          systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
+          systemctl set-default graphical.target
+          EOFCHROOT
           EOFRUN
 
-          chmod +x stage3/00-install-packages/00-run.sh
+          chmod +x stage2/99-custom-packages/00-run.sh
 
-          # Add GUI configuration
-          mkdir -p stage3/01-custom-gui/files
+          # Add GUI configuration to stage2
+          mkdir -p stage2/99-custom-gui/files
 
           # Copy GUI file if exists
           if [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
-            cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage3/01-custom-gui/files/
+            cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
           fi
 
-          cat > stage3/01-custom-gui/00-run.sh << 'EOFGUI'
+          cat > stage2/99-custom-gui/00-run.sh << 'EOFGUI'
           #!/bin/bash -e
-          if [ -d "${ROOTFS_DIR}" ]; then
-            on_chroot << EOFCHROOT
+          on_chroot << EOFCHROOT
           mkdir -p /usr/local/bin
           mkdir -p /home/pi/.config/autostart
 
@@ -288,17 +245,14 @@ jobs:
 
           chown -R 1000:1000 /home/pi/.config || true
           EOFCHROOT
-          else
-            echo "Rootfs not found, skipping GUI configuration"
-          fi
           EOFGUI
 
-          chmod +x stage3/01-custom-gui/00-run.sh
+          chmod +x stage2/99-custom-gui/00-run.sh
 
-          # Add web dashboard and services configuration
-          mkdir -p stage3/02-web-dashboard/files
+          # Add web dashboard and services configuration to stage2
+          mkdir -p stage2/99-web-dashboard/files
 
-          cat > stage3/02-web-dashboard/files/web-dashboard.py << 'WEBDASH'
+          cat > stage2/99-web-dashboard/files/web-dashboard.py << 'WEBDASH'
           #!/usr/bin/env python3
           from flask import Flask, render_template_string, jsonify, request
           import subprocess
@@ -450,10 +404,9 @@ jobs:
               app.run(host='0.0.0.0', port=8080, debug=False)
           WEBDASH
 
-          cat > stage3/02-web-dashboard/00-run.sh << 'WEBRUN'
+          cat > stage2/99-web-dashboard/00-run.sh << 'WEBRUN'
           #!/bin/bash -e
-          if [ -d "${ROOTFS_DIR}" ]; then
-            on_chroot << EOFCHROOT
+          on_chroot << EOFCHROOT
           # Install web dashboard
           install -m 755 /tmp/files/web-dashboard.py /usr/local/bin/
 
@@ -583,17 +536,14 @@ jobs:
           chown -R pi:pi /home/pi
           chmod +x /usr/local/bin/*.py
           EOFCHROOT
-          else
-            echo "Rootfs not found, skipping web dashboard configuration"
-          fi
           WEBRUN
 
-          chmod +x stage3/02-web-dashboard/00-run.sh
+          chmod +x stage2/99-web-dashboard/00-run.sh
 
-          # Add advanced casting services
-          mkdir -p stage3/03-advanced-casting/files
+          # Add advanced casting services to stage2
+          mkdir -p stage2/99-advanced-casting/files
 
-          cat > stage3/03-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
+          cat > stage2/99-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
           #!/usr/bin/env python3
           import subprocess
           import os
@@ -649,7 +599,7 @@ jobs:
                       receiver.stop()
           AIRPLAY
 
-          cat > stage3/03-advanced-casting/files/miracast-receiver.py << 'MIRACAST'
+          cat > stage2/99-advanced-casting/files/miracast-receiver.py << 'MIRACAST'
           #!/usr/bin/env python3
           import subprocess
           import os
@@ -700,7 +650,7 @@ jobs:
                       receiver.stop()
           MIRACAST
 
-          cat > stage3/03-advanced-casting/files/dlna-server.py << 'DLNA'
+          cat > stage2/99-advanced-casting/files/dlna-server.py << 'DLNA'
           #!/usr/bin/env python3
           import http.server
           import socketserver
@@ -761,10 +711,9 @@ jobs:
               server.start()
           DLNA
 
-          cat > stage3/03-advanced-casting/00-run.sh << 'CASTING'
+          cat > stage2/99-advanced-casting/00-run.sh << 'CASTING'
           #!/bin/bash -e
-          if [ -d "${ROOTFS_DIR}" ]; then
-            on_chroot << EOFCHROOT
+          on_chroot << EOFCHROOT
           # Install advanced casting services
           install -m 755 /tmp/files/airplay-receiver.py /usr/local/bin/
           install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
@@ -870,20 +819,11 @@ jobs:
           usermod -a -G audio pi
           usermod -a -G pulse pi
           usermod -a -G pulse-access pi
-
+          
           EOFCHROOT
-          else
-            echo "Rootfs not found, skipping advanced casting configuration"
-          fi
           CASTING
 
-          chmod +x stage3/03-advanced-casting/00-run.sh
-
-          # Mark for export
-          touch stage3/EXPORT_IMAGE
-
-          # Ensure stage3 doesn't skip
-          rm -f stage3/SKIP
+          chmod +x stage2/99-advanced-casting/00-run.sh
 
           echo "✅ pi-gen configured with custom packages"
 
