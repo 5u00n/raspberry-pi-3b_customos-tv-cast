@@ -65,6 +65,15 @@ jobs:
           # Create stage3 with custom packages
           sudo rm -rf stage3
           mkdir -p stage3/00-install-packages
+          
+          # Create prerun.sh to properly initialize stage3
+          cat > stage3/prerun.sh << 'PRERUN'
+          #!/bin/bash -e
+          if [ -d "${STAGE_WORK_DIR}/rootfs" ]; then
+            cp -a "${STAGE_WORK_DIR}/rootfs" "${STAGE_WORK_DIR}/rootfs.orig"
+          fi
+          PRERUN
+          chmod +x stage3/prerun.sh
 
           cat > stage3/00-install-packages/00-packages << 'EOFPKG'
           python3
@@ -89,13 +98,17 @@ jobs:
 
           cat > stage3/00-install-packages/00-run.sh << 'EOFRUN'
           #!/bin/bash -e
-          on_chroot << EOFCHROOT
-          apt-get update
-          apt-get upgrade -y
-          pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
-          systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
-          systemctl set-default graphical.target
-          EOFCHROOT
+          if [ -d "${ROOTFS_DIR}" ]; then
+            on_chroot << EOFCHROOT
+            apt-get update
+            apt-get upgrade -y
+            pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
+            systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
+            systemctl set-default graphical.target
+            EOFCHROOT
+          else
+            echo "Rootfs not found, skipping package installation"
+          fi
           EOFRUN
 
           chmod +x stage3/00-install-packages/00-run.sh
@@ -110,7 +123,8 @@ jobs:
 
           cat > stage3/01-custom-gui/00-run.sh << 'EOFGUI'
           #!/bin/bash -e
-          on_chroot << EOFCHROOT
+          if [ -d "${ROOTFS_DIR}" ]; then
+            on_chroot << EOFCHROOT
           mkdir -p /usr/local/bin
           mkdir -p /home/pi/.config/autostart
 
@@ -203,22 +217,25 @@ jobs:
 
           chown -R 1000:1000 /home/pi/.config || true
           EOFCHROOT
+          else
+            echo "Rootfs not found, skipping GUI configuration"
+          fi
           EOFGUI
 
           chmod +x stage3/01-custom-gui/00-run.sh
 
           # Add web dashboard and services configuration
           mkdir -p stage3/02-web-dashboard/files
-          
+
           cat > stage3/02-web-dashboard/files/web-dashboard.py << 'WEBDASH'
           #!/usr/bin/env python3
           from flask import Flask, render_template_string, jsonify, request
           import subprocess
           import psutil
           import os
-          
+
           app = Flask(__name__)
-          
+
           @app.route('/')
           def dashboard():
               return render_template_string('''
@@ -304,7 +321,7 @@ jobs:
           </body>
           </html>
           ''')
-          
+
           @app.route('/api/status')
           def api_status():
               return jsonify({
@@ -313,7 +330,7 @@ jobs:
                   'disk': psutil.disk_usage('/').percent,
                   'temp': get_cpu_temp()
               })
-          
+
           @app.route('/api/services')
           def api_services():
               services = ['ssh', 'shairport-sync', 'avahi-daemon', 'smbd', 'nginx', 'lightdm']
@@ -326,17 +343,17 @@ jobs:
                   except:
                       status[service] = False
               return jsonify(status)
-          
+
           @app.route('/api/reboot', methods=['POST'])
           def api_reboot():
               subprocess.run(['sudo', 'reboot'], check=False)
               return jsonify({'status': 'rebooting'})
-          
+
           @app.route('/api/shutdown', methods=['POST'])
           def api_shutdown():
               subprocess.run(['sudo', 'shutdown', '-h', 'now'], check=False)
               return jsonify({'status': 'shutting down'})
-          
+
           @app.route('/api/toggle-ssh', methods=['POST'])
           def api_toggle_ssh():
               try:
@@ -349,7 +366,7 @@ jobs:
                   return jsonify({'status': 'toggled'})
               except:
                   return jsonify({'status': 'error'})
-          
+
           def get_cpu_temp():
               try:
                   with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
@@ -357,37 +374,38 @@ jobs:
                       return f"{temp:.1f}"
               except:
                   return "N/A"
-          
+
           if __name__ == '__main__':
               app.run(host='0.0.0.0', port=8080, debug=False)
           WEBDASH
 
           cat > stage3/02-web-dashboard/00-run.sh << 'WEBRUN'
           #!/bin/bash -e
-          on_chroot << EOFCHROOT
+          if [ -d "${ROOTFS_DIR}" ]; then
+            on_chroot << EOFCHROOT
           # Install web dashboard
           install -m 755 /tmp/files/web-dashboard.py /usr/local/bin/
-          
+
           # Create systemd service for web dashboard
           cat > /etc/systemd/system/web-dashboard.service << 'WEBSERVICE'
           [Unit]
           Description=Web Dashboard
           After=network.target
-          
+
           [Service]
           Type=simple
           User=pi
           WorkingDirectory=/home/pi
           ExecStart=/usr/bin/python3 /usr/local/bin/web-dashboard.py
           Restart=always
-          
+
           [Install]
           WantedBy=multi-user.target
           WEBSERVICE
-          
+
           # Enable web dashboard service
           systemctl enable web-dashboard.service
-          
+
           # Configure nginx for web dashboard
           cat > /etc/nginx/sites-available/web-dashboard << 'NGINXCONF'
           server {
@@ -403,11 +421,11 @@ jobs:
               }
           }
           NGINXCONF
-          
+
           # Enable nginx site
           ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
           rm -f /etc/nginx/sites-enabled/default
-          
+
           # Configure shairport-sync
           cat > /etc/shairport-sync.conf << 'SHAIRPORT'
           general = {
@@ -415,13 +433,13 @@ jobs:
               output_backend = "alsa";
               mixer_control_name = "PCM";
           }
-          
+
           alsa = {
               output_device = "hw:0";
               mixer_control_name = "PCM";
           }
           SHAIRPORT
-          
+
           # Create Google Cast service
           cat > /usr/local/bin/google-cast-server.py << 'CASTSERVER'
           #!/usr/bin/env python3
@@ -430,7 +448,7 @@ jobs:
           import json
           import subprocess
           import os
-          
+
           class CastHandler(http.server.BaseHTTPRequestHandler):
               def do_GET(self):
                   if self.path == '/':
@@ -458,42 +476,45 @@ jobs:
                       self.send_header('Content-type', 'application/json')
                       self.end_headers()
                       self.wfile.write(json.dumps({'status': 'casted'}).encode())
-          
+
           if __name__ == '__main__':
               PORT = 8081
               with socketserver.TCPServer(("", PORT), CastHandler) as httpd:
                   print(f"Google Cast server running on port {PORT}")
                   httpd.serve_forever()
           CASTSERVER
-          
+
           chmod +x /usr/local/bin/google-cast-server.py
-          
+
           # Create Google Cast service
           cat > /etc/systemd/system/google-cast.service << 'CASTSERVICE'
           [Unit]
           Description=Google Cast Server
           After=network.target
-          
+
           [Service]
           Type=simple
           User=pi
           WorkingDirectory=/home/pi
           ExecStart=/usr/bin/python3 /usr/local/bin/google-cast-server.py
           Restart=always
-          
+
           [Install]
           WantedBy=multi-user.target
           CASTSERVICE
-          
+
           systemctl enable google-cast.service
-          
+
           # Ensure SSH is enabled
           systemctl enable ssh
-          
+
           # Set up proper permissions
           chown -R pi:pi /home/pi
           chmod +x /usr/local/bin/*.py
           EOFCHROOT
+          else
+            echo "Rootfs not found, skipping web dashboard configuration"
+          fi
           WEBRUN
 
           chmod +x stage3/02-web-dashboard/00-run.sh
