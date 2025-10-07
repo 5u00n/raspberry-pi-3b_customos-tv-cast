@@ -819,7 +819,7 @@ jobs:
           usermod -a -G audio pi
           usermod -a -G pulse pi
           usermod -a -G pulse-access pi
-          
+
           EOFCHROOT
           CASTING
 
