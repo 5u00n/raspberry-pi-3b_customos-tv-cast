@@ -13,7 +13,7 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   submodules: "true"
 
@@ -162,7 +162,7 @@ jobs:
                   echo "Build complete!"
 
             - name: Upload Custom OS Image
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: custom-raspberry-pi-os
                   path: pi-gen/deploy/*.zip
@@ -194,7 +194,7 @@ jobs:
                   cat release-info.txt
 
             - name: Upload release info
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: release-info
                   path: pi-gen/deploy/release-info.txt
