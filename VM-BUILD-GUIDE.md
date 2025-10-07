@@ -5,6 +5,7 @@
 ### 1️⃣ Copy Project to Your VM
 
 **From your Mac terminal:**
+
 ```bash
 # Find your VM's IP (check UTM or your VM settings)
 # Replace <VM_IP> with your actual IP (e.g., 192.168.64.2)
@@ -17,6 +18,7 @@ scp project.tar.gz user@<VM_IP>:~/
 ### 2️⃣ SSH into Your VM
 
 **From your Mac terminal:**
+
 ```bash
 ssh user@<VM_IP>
 ```
@@ -24,6 +26,7 @@ ssh user@<VM_IP>
 ### 3️⃣ Build the Custom OS
 
 **Inside your Debian VM:**
+
 ```bash
 # Extract project
 tar xzf project.tar.gz
@@ -34,6 +37,7 @@ chmod +x BUILD-IN-DEBIAN-VM.sh
 ```
 
 **That's it!** The script will:
+
 - ✅ Install all dependencies
 - ✅ Clone pi-gen
 - ✅ Configure your custom OS
@@ -45,6 +49,7 @@ chmod +x BUILD-IN-DEBIAN-VM.sh
 ## Alternative: Clone from GitHub
 
 **Inside your Debian VM:**
+
 ```bash
 # Install git if needed
 sudo apt-get update
@@ -64,6 +69,7 @@ chmod +x BUILD-IN-DEBIAN-VM.sh
 ## What Gets Built
 
 Your custom OS includes:
+
 - 🎨 **Custom Qt Desktop** (fullscreen on boot)
 - 📊 **System monitoring** (CPU, RAM, Disk, Temperature)
 - 🔧 **Service controls** (one-click start/stop)
@@ -80,6 +86,7 @@ Your custom OS includes:
 ## Monitor Build Progress
 
 **In another SSH session:**
+
 ```bash
 # Watch build progress
 tail -f pi-gen/work/*/build.log
@@ -92,6 +99,7 @@ tail -f pi-gen/work/*/build.log
 ### Copy Image to Your Mac
 
 **From your Mac terminal:**
+
 ```bash
 # Copy the built image from VM to Mac
 scp user@<VM_IP>:~/raspberry-pi-3b_customos-tv-cast/pi-gen/deploy/*.img ~/Downloads/
@@ -100,6 +108,7 @@ scp user@<VM_IP>:~/raspberry-pi-3b_customos-tv-cast/pi-gen/deploy/*.img ~/Downlo
 ### Flash to USB Drive
 
 **On your Mac:**
+
 ```bash
 # Find your USB drive
 diskutil list
@@ -127,6 +136,7 @@ sudo diskutil eject /dev/disk4
 ## Troubleshooting
 
 ### Can't SSH to VM?
+
 ```bash
 # Find VM IP address (run inside VM console)
 ip addr show
@@ -139,6 +149,7 @@ sudo systemctl enable ssh
 ```
 
 ### Build Fails?
+
 ```bash
 # Check error in build log
 tail -100 pi-gen/work/*/build.log
@@ -151,6 +162,7 @@ cd ..
 ```
 
 ### Out of Disk Space?
+
 ```bash
 # Check available space
 df -h
@@ -164,11 +176,13 @@ df -h
 ## Default Credentials
 
 **Raspberry Pi OS:**
+
 - Username: `pi`
 - Password: `raspberry`
 - Hostname: `raspberrypi-custom`
 
 **SSH Access:**
+
 ```bash
 ssh pi@raspberrypi-custom.local
 # or
@@ -176,6 +190,7 @@ ssh pi@<raspberry-pi-ip>
 ```
 
 **Samba File Share:**
+
 ```
 smb://raspberrypi-custom.local/pi
 Username: pi
@@ -187,10 +202,10 @@ Password: raspberry
 ## Need Help?
 
 The build script is fully automated and includes:
+
 - ✅ Dependency installation
 - ✅ Configuration setup
 - ✅ Error handling
 - ✅ Progress reporting
 
 Just run `./BUILD-IN-DEBIAN-VM.sh` and wait! 🍓
-

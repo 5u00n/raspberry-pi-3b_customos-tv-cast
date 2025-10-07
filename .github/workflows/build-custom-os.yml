@@ -84,7 +84,7 @@ jobs:
           python3-requests
           python3-flask
           python3-flask-cors
-          
+
           # Desktop environment
           xserver-xorg
           xinit
@@ -93,7 +93,7 @@ jobs:
           openbox
           pcmanfm
           lxterminal
-          
+
           # AirPlay and audio
           shairport-sync
           avahi-daemon
@@ -101,13 +101,13 @@ jobs:
           alsa-utils
           pulseaudio
           pulseaudio-utils
-          
+
           # Network discovery and services
           samba
           samba-common-bin
           nginx
           openssh-server
-          
+
           # WiFi and networking
           iw
           wireless-tools
@@ -118,18 +118,18 @@ jobs:
           iputils-ping
           curl
           wget
-          
+
           # Web browsers and media
           chromium-browser
           firefox-esr
-          
+
           # Additional casting/streaming packages
           vlc
           ffmpeg
           youtube-dl
           nodejs
           npm
-          
+
           # System utilities
           htop
           nano
@@ -564,14 +564,14 @@ jobs:
 
           # Add advanced casting services
           mkdir -p stage3/03-advanced-casting/files
-          
+
           cat > stage3/03-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
           #!/usr/bin/env python3
           import subprocess
           import os
           import signal
           import sys
-          
+
           class AirPlayReceiver:
               def __init__(self):
                   self.process = None
@@ -603,7 +603,7 @@ jobs:
               def restart(self):
                   self.stop()
                   return self.start()
-          
+
           if __name__ == '__main__':
               receiver = AirPlayReceiver()
               
@@ -627,7 +627,7 @@ jobs:
           import os
           import signal
           import sys
-          
+
           class MiracastReceiver:
               def __init__(self):
                   self.process = None
@@ -654,7 +654,7 @@ jobs:
                       self.process.terminate()
                       self.process.wait()
                       print("Miracast receiver stopped")
-          
+
           if __name__ == '__main__':
               receiver = MiracastReceiver()
               
@@ -680,7 +680,7 @@ jobs:
           import os
           import mimetypes
           from urllib.parse import urlparse, unquote
-          
+
           class DLNAServer:
               def __init__(self, port=8083, media_dir="/home/pi/Media"):
                   self.port = port
@@ -727,7 +727,7 @@ jobs:
                               super().do_POST()
                   
                   return DLNAHandler
-          
+
           if __name__ == '__main__':
               server = DLNAServer()
               server.start()
@@ -741,69 +741,69 @@ jobs:
           install -m 755 /tmp/files/airplay-receiver.py /usr/local/bin/
           install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
           install -m 755 /tmp/files/dlna-server.py /usr/local/bin/
-          
+
           # Create systemd services for advanced casting
           cat > /etc/systemd/system/airplay-receiver.service << 'AIRPLAYSERVICE'
           [Unit]
           Description=Enhanced AirPlay Receiver
           After=network.target sound.target
-          
+
           [Service]
           Type=simple
           User=pi
           WorkingDirectory=/home/pi
           ExecStart=/usr/bin/python3 /usr/local/bin/airplay-receiver.py
           Restart=always
-          
+
           [Install]
           WantedBy=multi-user.target
           AIRPLAYSERVICE
-          
+
           cat > /etc/systemd/system/miracast-receiver.service << 'MIRACASTSERVICE'
           [Unit]
           Description=Miracast Receiver (VLC)
           After=network.target
-          
+
           [Service]
           Type=simple
           User=pi
           WorkingDirectory=/home/pi
           ExecStart=/usr/bin/python3 /usr/local/bin/miracast-receiver.py
           Restart=always
-          
+
           [Install]
           WantedBy=multi-user.target
           MIRACASTSERVICE
-          
+
           cat > /etc/systemd/system/dlna-server.service << 'DLNASERVICE'
           [Unit]
           Description=DLNA Media Server
           After=network.target
-          
+
           [Service]
           Type=simple
           User=pi
           WorkingDirectory=/home/pi
           ExecStart=/usr/bin/python3 /usr/local/bin/dlna-server.py
           Restart=always
-          
+
           [Install]
           WantedBy=multi-user.target
           DLNASERVICE
-          
+
           # Enable all casting services
           systemctl enable airplay-receiver.service
           systemctl enable miracast-receiver.service
           systemctl enable dlna-server.service
-          
+
           # Create media directory
           mkdir -p /home/pi/Media
           chown -R pi:pi /home/pi/Media
-          
+
           # Install additional Python packages for casting
           pip3 install --break-system-packages pychromecast || pip3 install pychromecast
           pip3 install --break-system-packages zeroconf || pip3 install zeroconf
-          
+
           # Configure enhanced shairport-sync
           cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
           general = {
@@ -814,18 +814,18 @@ jobs:
               log_level = 1;
               log_verbosity = 1;
           }
-          
+
           alsa = {
               output_device = "hw:0";
               mixer_control_name = "PCM";
               mixer_device = "hw:0";
           }
-          
+
           sessioncontrol = {
               session_timeout = 20;
           }
           ENHANCED_SHAIRPORT
-          
+
           # Configure PulseAudio for better audio
           cat > /etc/pulse/default.pa << 'PULSEAUDIO'
           load-module module-device-restore
@@ -837,12 +837,12 @@ jobs:
           load-module module-alsa-source device=hw:1,0
           load-module module-native-protocol-unix
           PULSEAUDIO
-          
+
           # Set up audio permissions
           usermod -a -G audio pi
           usermod -a -G pulse pi
           usermod -a -G pulse-access pi
-          
+
           EOFCHROOT
           else
             echo "Rootfs not found, skipping advanced casting configuration"
