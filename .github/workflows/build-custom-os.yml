@@ -1,956 +1,956 @@
 name: Build Custom Raspberry Pi OS
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-  workflow_dispatch: # Allow manual trigger
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
+    workflow_dispatch: # Allow manual trigger
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: "true"
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  submodules: "true"
 
-      - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo apt-get clean
-          df -h
+            - name: Free up disk space
+              run: |
+                  sudo rm -rf /usr/share/dotnet
+                  sudo rm -rf /opt/ghc
+                  sudo rm -rf "/usr/local/share/boost"
+                  sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+                  sudo apt-get clean
+                  df -h
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap zerofree zip \
-            dosfstools libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc \
-            qemu-utils kpartx arch-test
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y coreutils quilt parted qemu-user-static debootstrap zerofree zip \
+                    dosfstools libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc \
+                    qemu-utils kpartx arch-test
 
-      - name: Clone pi-gen
-        run: |
-          rm -rf pi-gen
-          git clone https://github.com/RPi-Distro/pi-gen.git
-          cd pi-gen
-          # Use 2024 branch which supports bookworm
-          git checkout 2024-07-04-raspios-bookworm || git checkout master
+            - name: Clone pi-gen
+              run: |
+                  rm -rf pi-gen
+                  git clone https://github.com/RPi-Distro/pi-gen.git
+                  cd pi-gen
+                  # Use 2024 branch which supports bookworm
+                  git checkout 2024-07-04-raspios-bookworm || git checkout master
 
-      - name: Configure pi-gen
-        run: |
-          cd pi-gen
+            - name: Configure pi-gen
+              run: |
+                  cd pi-gen
 
-          # Clean previous builds first
-          sudo rm -rf work deploy
+                  # Clean previous builds first
+                  sudo rm -rf work deploy
 
-          # Create config
-          cat > config << 'EOF'
-          IMG_NAME='CustomRaspberryPi3B'
-          RELEASE=bookworm
-          DEPLOY_COMPRESSION=zip
-          ENABLE_SSH=1
-          STAGE_LIST="stage0 stage1 stage2"
-          TARGET_HOSTNAME=raspberrypi-custom
-          FIRST_USER_NAME=pi
-          FIRST_USER_PASS=raspberry
-          DISABLE_FIRST_BOOT_USER_RENAME=1
-          DEPLOY_ZIP=1
-          EOF
+                  # Create config
+                  cat > config << 'EOF'
+                  IMG_NAME='CustomRaspberryPi3B'
+                  RELEASE=bookworm
+                  DEPLOY_COMPRESSION=zip
+                  ENABLE_SSH=1
+                  STAGE_LIST="stage0 stage1 stage2"
+                  TARGET_HOSTNAME=raspberrypi-custom
+                  FIRST_USER_NAME=pi
+                  FIRST_USER_PASS=raspberry
+                  DISABLE_FIRST_BOOT_USER_RENAME=1
+                  DEPLOY_ZIP=1
+                  EOF
 
-          # Add custom packages to stage2 instead of creating stage3
-          mkdir -p stage2/99-custom-packages
+                  # Add custom packages to stage2 instead of creating stage3
+                  mkdir -p stage2/99-custom-packages
 
-          cat > stage2/99-custom-packages/00-packages << 'EOFPKG'
-          # Core Python packages
-          python3
-          python3-pip
-          python3-gi
-          python3-gi-cairo
-          gir1.2-gtk-3.0
-          python3-psutil
-          python3-requests
-          python3-flask
-          python3-flask-cors
+                  cat > stage2/99-custom-packages/00-packages << 'EOFPKG'
+                  # Core Python packages
+                  python3
+                  python3-pip
+                  python3-gi
+                  python3-gi-cairo
+                  gir1.2-gtk-3.0
+                  python3-psutil
+                  python3-requests
+                  python3-flask
+                  python3-flask-cors
 
-          # Desktop environment
-          xserver-xorg
-          xinit
-          lightdm
-          lxde-core
-          openbox
-          pcmanfm
-          lxterminal
+                  # Desktop environment
+                  xserver-xorg
+                  xinit
+                  lightdm
+                  lxde-core
+                  openbox
+                  pcmanfm
+                  lxterminal
 
-          # AirPlay and audio
-          shairport-sync
-          avahi-daemon
-          avahi-utils
-          alsa-utils
-          pulseaudio
-          pulseaudio-utils
+                  # AirPlay and audio
+                  shairport-sync
+                  avahi-daemon
+                  avahi-utils
+                  alsa-utils
+                  pulseaudio
+                  pulseaudio-utils
 
-          # Network discovery and services
-          samba
-          samba-common-bin
-          nginx
-          openssh-server
+                  # Network discovery and services
+                  samba
+                  samba-common-bin
+                  nginx
+                  openssh-server
 
-          # WiFi and networking
-          iw
-          wireless-tools
-          hostapd
-          dnsmasq
-          wpasupplicant
-          net-tools
-          iputils-ping
-          curl
-          wget
+                  # WiFi and networking
+                  iw
+                  wireless-tools
+                  hostapd
+                  dnsmasq
+                  wpasupplicant
+                  net-tools
+                  iputils-ping
+                  curl
+                  wget
 
-          # Web browsers and media
-          chromium-browser
-          firefox-esr
+                  # Web browsers and media
+                  chromium-browser
+                  firefox-esr
 
-          # Additional casting/streaming packages
-          vlc
-          ffmpeg
-          youtube-dl
-          nodejs
-          npm
+                  # Additional casting/streaming packages
+                  vlc
+                  ffmpeg
+                  youtube-dl
+                  nodejs
+                  npm
 
-          # System utilities
-          htop
-          nano
-          vim
-          git
-          unzip
-          zip
-          EOFPKG
+                  # System utilities
+                  htop
+                  nano
+                  vim
+                  git
+                  unzip
+                  zip
+                  EOFPKG
 
-          cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
-          #!/bin/bash -e
-          on_chroot << EOFCHROOT
-          apt-get update
-          apt-get upgrade -y
-          # Packages are already installed via apt, no need for pip3
-          systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
-          systemctl set-default graphical.target
-          EOFCHROOT
-          EOFRUN
+                  cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  apt-get update
+                  apt-get upgrade -y
+                  # Packages are already installed via apt, no need for pip3
+                  systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
+                  systemctl set-default graphical.target
+                  EOFCHROOT
+                  EOFRUN
 
-          chmod +x stage2/99-custom-packages/00-run.sh
+                  chmod +x stage2/99-custom-packages/00-run.sh
 
-          # Add GUI configuration to stage2
-          mkdir -p stage2/99-custom-gui/files
+                  # Add GUI configuration to stage2
+                  mkdir -p stage2/99-custom-gui/files
 
-          # Copy Smart TV GUI file if exists (prefer Smart TV version)
-          if [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
-            cp ../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py stage2/99-custom-gui/files/raspberry-pi-gui.py
-          elif [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
-            cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
-          fi
+                  # Copy Smart TV GUI file if exists (prefer Smart TV version)
+                  if [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
+                    cp ../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py stage2/99-custom-gui/files/raspberry-pi-gui.py
+                  elif [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+                    cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
+                  fi
 
-          cat > stage2/99-custom-gui/00-run.sh << 'EOFGUI'
-          #!/bin/bash -e
-          on_chroot << EOFCHROOT
-          mkdir -p /usr/local/bin
-          mkdir -p /home/pi/.config/autostart
+                  cat > stage2/99-custom-gui/00-run.sh << 'EOFGUI'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  mkdir -p /usr/local/bin
+                  mkdir -p /home/pi/.config/autostart
 
-          # Install GUI script if it exists
-          if [ -f "/tmp/files/raspberry-pi-gui.py" ]; then
-            install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
-            echo "Custom GUI script installed"
-          else
-            echo "Custom GUI script not found, creating GTK-based Smart TV interface"
-            cat > /usr/local/bin/raspberry-pi-gui.py << 'GUISCRIPT'
-          #!/usr/bin/env python3
-          import gi
-          gi.require_version('Gtk', '3.0')
-          from gi.repository import Gtk, GLib
+                  # Install GUI script if it exists
+                  if [ -f "/tmp/files/raspberry-pi-gui.py" ]; then
+                    install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
+                    echo "Custom GUI script installed"
+                  else
+                    echo "Custom GUI script not found, creating GTK-based Smart TV interface"
+                    cat > /usr/local/bin/raspberry-pi-gui.py << 'GUISCRIPT'
+                  #!/usr/bin/env python3
+                  import gi
+                  gi.require_version('Gtk', '3.0')
+                  from gi.repository import Gtk, GLib
 
-          class SimpleSmartTV(Gtk.Window):
-              def __init__(self):
-                  super().__init__(title="Raspberry Pi Smart TV")
-                  self.set_default_size(800, 600)
-                  self.fullscreen()
-                  
-                  vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
-                  vbox.set_halign(Gtk.Align.CENTER)
-                  vbox.set_valign(Gtk.Align.CENTER)
-                  self.add(vbox)
-                  
-                  title = Gtk.Label()
-                  title.set_markup('<span size="xx-large" weight="bold">🍓 Raspberry Pi Smart TV</span>')
-                  vbox.pack_start(title, False, False, 20)
-                  
-                  subtitle = Gtk.Label()
-                  subtitle.set_markup('<span size="large">Cast from any device • Stream content • Control your media</span>')
-                  vbox.pack_start(subtitle, False, False, 10)
-                  
-                  info = Gtk.Label()
-                  info.set_markup('<span size="medium">SSH: pi@raspberrypi-custom | Password: raspberry\nWeb Dashboard: http://raspberrypi-custom:8080</span>')
-                  vbox.pack_start(info, False, False, 10)
+                  class SimpleSmartTV(Gtk.Window):
+                      def __init__(self):
+                          super().__init__(title="Raspberry Pi Smart TV")
+                          self.set_default_size(800, 600)
+                          self.fullscreen()
+                          
+                          vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+                          vbox.set_halign(Gtk.Align.CENTER)
+                          vbox.set_valign(Gtk.Align.CENTER)
+                          self.add(vbox)
+                          
+                          title = Gtk.Label()
+                          title.set_markup('<span size="xx-large" weight="bold">🍓 Raspberry Pi Smart TV</span>')
+                          vbox.pack_start(title, False, False, 20)
+                          
+                          subtitle = Gtk.Label()
+                          subtitle.set_markup('<span size="large">Cast from any device • Stream content • Control your media</span>')
+                          vbox.pack_start(subtitle, False, False, 10)
+                          
+                          info = Gtk.Label()
+                          info.set_markup('<span size="medium">SSH: pi@raspberrypi-custom | Password: raspberry\nWeb Dashboard: http://raspberrypi-custom:8080</span>')
+                          vbox.pack_start(info, False, False, 10)
 
-          def main():
-              win = SimpleSmartTV()
-              win.connect("destroy", Gtk.main_quit)
-              win.show_all()
-              Gtk.main()
+                  def main():
+                      win = SimpleSmartTV()
+                      win.connect("destroy", Gtk.main_quit)
+                      win.show_all()
+                      Gtk.main()
 
-          if __name__ == '__main__':
-              main()
-          GUISCRIPT
-            chmod +x /usr/local/bin/raspberry-pi-gui.py
-          fi
+                  if __name__ == '__main__':
+                      main()
+                  GUISCRIPT
+                    chmod +x /usr/local/bin/raspberry-pi-gui.py
+                  fi
 
-          # Create autostart desktop entry
-          cat > /home/pi/.config/autostart/custom-gui.desktop << 'AUTOSTART'
-          [Desktop Entry]
-          Type=Application
-          Name=Custom GUI
-          Exec=python3 /usr/local/bin/raspberry-pi-gui.py
-          Hidden=false
-          NoDisplay=false
-          X-GNOME-Autostart-enabled=true
-          AUTOSTART
+                  # Create autostart desktop entry
+                  cat > /home/pi/.config/autostart/custom-gui.desktop << 'AUTOSTART'
+                  [Desktop Entry]
+                  Type=Application
+                  Name=Custom GUI
+                  Exec=python3 /usr/local/bin/raspberry-pi-gui.py
+                  Hidden=false
+                  NoDisplay=false
+                  X-GNOME-Autostart-enabled=true
+                  AUTOSTART
 
-          # Configure auto-login
-          mkdir -p /etc/systemd/system/getty@tty1.service.d
-          cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
-          [Service]
-          ExecStart=
-          ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
-          AUTOLOGIN
+                  # Configure auto-login
+                  mkdir -p /etc/systemd/system/getty@tty1.service.d
+                  cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN'
+                  [Service]
+                  ExecStart=
+                  ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+                  AUTOLOGIN
 
-          mkdir -p /etc/lightdm/lightdm.conf.d
-          cat > /etc/lightdm/lightdm.conf.d/01-autologin.conf << 'LIGHTDM'
-          [Seat:*]
-          autologin-user=pi
-          autologin-user-timeout=0
-          LIGHTDM
+                  mkdir -p /etc/lightdm/lightdm.conf.d
+                  cat > /etc/lightdm/lightdm.conf.d/01-autologin.conf << 'LIGHTDM'
+                  [Seat:*]
+                  autologin-user=pi
+                  autologin-user-timeout=0
+                  LIGHTDM
 
-          # Configure Samba
-          mkdir -p /etc/samba
-          if [ ! -f /etc/samba/smb.conf ]; then
-            # Create basic Samba config if it doesn't exist
-            cat > /etc/samba/smb.conf << 'BASIC_SAMBA'
-          [global]
-          workgroup = WORKGROUP
-          server string = Raspberry Pi Custom OS
-          security = user
-          map to guest = Bad User
-          dns proxy = no
-          BASIC_SAMBA
-          fi
-          
-          # Add pi share to existing config
-          cat >> /etc/samba/smb.conf << 'SAMBA'
+                  # Configure Samba
+                  mkdir -p /etc/samba
+                  if [ ! -f /etc/samba/smb.conf ]; then
+                    # Create basic Samba config if it doesn't exist
+                    cat > /etc/samba/smb.conf << 'BASIC_SAMBA'
+                  [global]
+                  workgroup = WORKGROUP
+                  server string = Raspberry Pi Custom OS
+                  security = user
+                  map to guest = Bad User
+                  dns proxy = no
+                  BASIC_SAMBA
+                  fi
 
-          [pi]
-             path = /home/pi
-             browseable = yes
-             read only = no
-             guest ok = no
-          SAMBA
+                  # Add pi share to existing config
+                  cat >> /etc/samba/smb.conf << 'SAMBA'
 
-          (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
+                  [pi]
+                     path = /home/pi
+                     browseable = yes
+                     read only = no
+                     guest ok = no
+                  SAMBA
 
-          chown -R 1000:1000 /home/pi/.config || true
-          EOFCHROOT
-          EOFGUI
+                  (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
 
-          chmod +x stage2/99-custom-gui/00-run.sh
+                  chown -R 1000:1000 /home/pi/.config || true
+                  EOFCHROOT
+                  EOFGUI
 
-          # Add web dashboard and services configuration to stage2
-          mkdir -p stage2/99-web-dashboard/files
+                  chmod +x stage2/99-custom-gui/00-run.sh
 
-          cat > stage2/99-web-dashboard/files/web-dashboard.py << 'WEBDASH'
-          #!/usr/bin/env python3
-          from flask import Flask, render_template_string, jsonify, request
-          import subprocess
-          import psutil
-          import os
+                  # Add web dashboard and services configuration to stage2
+                  mkdir -p stage2/99-web-dashboard/files
 
-          app = Flask(__name__)
+                  cat > stage2/99-web-dashboard/files/web-dashboard.py << 'WEBDASH'
+                  #!/usr/bin/env python3
+                  from flask import Flask, render_template_string, jsonify, request
+                  import subprocess
+                  import psutil
+                  import os
 
-          @app.route('/')
-          def dashboard():
-              return render_template_string('''
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>Raspberry Pi Custom OS Dashboard</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <style>
-                  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #1a1a1a; color: #fff; }
-                  .container { max-width: 1200px; margin: 0 auto; }
-                  .card { background: #2d2d2d; padding: 20px; margin: 10px 0; border-radius: 8px; }
-                  .status { display: inline-block; padding: 5px 10px; border-radius: 4px; margin: 5px; }
-                  .running { background: #4CAF50; }
-                  .stopped { background: #f44336; }
-                  button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
-                  button:hover { background: #0056b3; }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1>🍓 Raspberry Pi Custom OS Dashboard</h1>
-                  
-                  <div class="card">
-                      <h2>System Status</h2>
-                      <p>CPU: <span id="cpu">Loading...</span></p>
-                      <p>Memory: <span id="memory">Loading...</span></p>
-                      <p>Disk: <span id="disk">Loading...</span></p>
-                      <p>Temperature: <span id="temp">Loading...</span></p>
-                  </div>
-                  
-                  <div class="card">
-                      <h2>Services</h2>
-                      <div id="services">Loading...</div>
-                  </div>
-                  
-                  <div class="card">
-                      <h2>Quick Actions</h2>
-                      <button onclick="reboot()">Reboot</button>
-                      <button onclick="shutdown()">Shutdown</button>
-                      <button onclick="toggleSSH()">Toggle SSH</button>
-                  </div>
-              </div>
-              
-              <script>
-                  function updateStatus() {
-                      fetch('/api/status')
-                          .then(response => response.json())
-                          .then(data => {
-                              document.getElementById('cpu').textContent = data.cpu + '%';
-                              document.getElementById('memory').textContent = data.memory + '%';
-                              document.getElementById('disk').textContent = data.disk + '%';
-                              document.getElementById('temp').textContent = data.temp + '°C';
-                          });
+                  app = Flask(__name__)
+
+                  @app.route('/')
+                  def dashboard():
+                      return render_template_string('''
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                      <title>Raspberry Pi Custom OS Dashboard</title>
+                      <meta name="viewport" content="width=device-width, initial-scale=1">
+                      <style>
+                          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #1a1a1a; color: #fff; }
+                          .container { max-width: 1200px; margin: 0 auto; }
+                          .card { background: #2d2d2d; padding: 20px; margin: 10px 0; border-radius: 8px; }
+                          .status { display: inline-block; padding: 5px 10px; border-radius: 4px; margin: 5px; }
+                          .running { background: #4CAF50; }
+                          .stopped { background: #f44336; }
+                          button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+                          button:hover { background: #0056b3; }
+                      </style>
+                  </head>
+                  <body>
+                      <div class="container">
+                          <h1>🍓 Raspberry Pi Custom OS Dashboard</h1>
+                          
+                          <div class="card">
+                              <h2>System Status</h2>
+                              <p>CPU: <span id="cpu">Loading...</span></p>
+                              <p>Memory: <span id="memory">Loading...</span></p>
+                              <p>Disk: <span id="disk">Loading...</span></p>
+                              <p>Temperature: <span id="temp">Loading...</span></p>
+                          </div>
+                          
+                          <div class="card">
+                              <h2>Services</h2>
+                              <div id="services">Loading...</div>
+                          </div>
+                          
+                          <div class="card">
+                              <h2>Quick Actions</h2>
+                              <button onclick="reboot()">Reboot</button>
+                              <button onclick="shutdown()">Shutdown</button>
+                              <button onclick="toggleSSH()">Toggle SSH</button>
+                          </div>
+                      </div>
                       
-                      fetch('/api/services')
-                          .then(response => response.json())
-                          .then(data => {
-                              let html = '';
-                              for (let service in data) {
-                                  const status = data[service] ? 'running' : 'stopped';
-                                  html += `<span class="status ${status}">${service}: ${status}</span>`;
-                              }
-                              document.getElementById('services').innerHTML = html;
-                          });
-                  }
-                  
-                  function reboot() {
-                      fetch('/api/reboot', {method: 'POST'});
-                  }
-                  
-                  function shutdown() {
-                      fetch('/api/shutdown', {method: 'POST'});
-                  }
-                  
-                  function toggleSSH() {
-                      fetch('/api/toggle-ssh', {method: 'POST'});
-                  }
-                  
-                  setInterval(updateStatus, 2000);
-                  updateStatus();
-              </script>
-          </body>
-          </html>
-          ''')
+                      <script>
+                          function updateStatus() {
+                              fetch('/api/status')
+                                  .then(response => response.json())
+                                  .then(data => {
+                                      document.getElementById('cpu').textContent = data.cpu + '%';
+                                      document.getElementById('memory').textContent = data.memory + '%';
+                                      document.getElementById('disk').textContent = data.disk + '%';
+                                      document.getElementById('temp').textContent = data.temp + '°C';
+                                  });
+                              
+                              fetch('/api/services')
+                                  .then(response => response.json())
+                                  .then(data => {
+                                      let html = '';
+                                      for (let service in data) {
+                                          const status = data[service] ? 'running' : 'stopped';
+                                          html += `<span class="status ${status}">${service}: ${status}</span>`;
+                                      }
+                                      document.getElementById('services').innerHTML = html;
+                                  });
+                          }
+                          
+                          function reboot() {
+                              fetch('/api/reboot', {method: 'POST'});
+                          }
+                          
+                          function shutdown() {
+                              fetch('/api/shutdown', {method: 'POST'});
+                          }
+                          
+                          function toggleSSH() {
+                              fetch('/api/toggle-ssh', {method: 'POST'});
+                          }
+                          
+                          setInterval(updateStatus, 2000);
+                          updateStatus();
+                      </script>
+                  </body>
+                  </html>
+                  ''')
 
-          @app.route('/api/status')
-          def api_status():
-              return jsonify({
-                  'cpu': psutil.cpu_percent(),
-                  'memory': psutil.virtual_memory().percent,
-                  'disk': psutil.disk_usage('/').percent,
-                  'temp': get_cpu_temp()
-              })
+                  @app.route('/api/status')
+                  def api_status():
+                      return jsonify({
+                          'cpu': psutil.cpu_percent(),
+                          'memory': psutil.virtual_memory().percent,
+                          'disk': psutil.disk_usage('/').percent,
+                          'temp': get_cpu_temp()
+                      })
 
-          @app.route('/api/services')
-          def api_services():
-              services = ['ssh', 'shairport-sync', 'avahi-daemon', 'smbd', 'nginx', 'lightdm']
-              status = {}
-              for service in services:
-                  try:
-                      result = subprocess.run(['systemctl', 'is-active', service], 
-                                            capture_output=True, text=True)
-                      status[service] = result.stdout.strip() == 'active'
-                  except:
-                      status[service] = False
-              return jsonify(status)
+                  @app.route('/api/services')
+                  def api_services():
+                      services = ['ssh', 'shairport-sync', 'avahi-daemon', 'smbd', 'nginx', 'lightdm']
+                      status = {}
+                      for service in services:
+                          try:
+                              result = subprocess.run(['systemctl', 'is-active', service], 
+                                                    capture_output=True, text=True)
+                              status[service] = result.stdout.strip() == 'active'
+                          except:
+                              status[service] = False
+                      return jsonify(status)
 
-          @app.route('/api/reboot', methods=['POST'])
-          def api_reboot():
-              subprocess.run(['sudo', 'reboot'], check=False)
-              return jsonify({'status': 'rebooting'})
+                  @app.route('/api/reboot', methods=['POST'])
+                  def api_reboot():
+                      subprocess.run(['sudo', 'reboot'], check=False)
+                      return jsonify({'status': 'rebooting'})
 
-          @app.route('/api/shutdown', methods=['POST'])
-          def api_shutdown():
-              subprocess.run(['sudo', 'shutdown', '-h', 'now'], check=False)
-              return jsonify({'status': 'shutting down'})
+                  @app.route('/api/shutdown', methods=['POST'])
+                  def api_shutdown():
+                      subprocess.run(['sudo', 'shutdown', '-h', 'now'], check=False)
+                      return jsonify({'status': 'shutting down'})
 
-          @app.route('/api/toggle-ssh', methods=['POST'])
-          def api_toggle_ssh():
-              try:
-                  result = subprocess.run(['systemctl', 'is-active', 'ssh'], 
-                                        capture_output=True, text=True)
-                  if result.stdout.strip() == 'active':
-                      subprocess.run(['sudo', 'systemctl', 'stop', 'ssh'])
-                  else:
-                      subprocess.run(['sudo', 'systemctl', 'start', 'ssh'])
-                  return jsonify({'status': 'toggled'})
-              except:
-                  return jsonify({'status': 'error'})
+                  @app.route('/api/toggle-ssh', methods=['POST'])
+                  def api_toggle_ssh():
+                      try:
+                          result = subprocess.run(['systemctl', 'is-active', 'ssh'], 
+                                                capture_output=True, text=True)
+                          if result.stdout.strip() == 'active':
+                              subprocess.run(['sudo', 'systemctl', 'stop', 'ssh'])
+                          else:
+                              subprocess.run(['sudo', 'systemctl', 'start', 'ssh'])
+                          return jsonify({'status': 'toggled'})
+                      except:
+                          return jsonify({'status': 'error'})
 
-          def get_cpu_temp():
-              try:
-                  with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
-                      temp = int(f.read()) / 1000
-                      return f"{temp:.1f}"
-              except:
-                  return "N/A"
+                  def get_cpu_temp():
+                      try:
+                          with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                              temp = int(f.read()) / 1000
+                              return f"{temp:.1f}"
+                      except:
+                          return "N/A"
 
-          if __name__ == '__main__':
-              app.run(host='0.0.0.0', port=8080, debug=False)
-          WEBDASH
+                  if __name__ == '__main__':
+                      app.run(host='0.0.0.0', port=8080, debug=False)
+                  WEBDASH
 
-          cat > stage2/99-web-dashboard/00-run.sh << 'WEBRUN'
-          #!/bin/bash -e
-          on_chroot << EOFCHROOT
-          # Install web dashboard
-          if [ -f "/tmp/files/web-dashboard.py" ]; then
-            install -m 755 /tmp/files/web-dashboard.py /usr/local/bin/
-          else
-            echo "web-dashboard.py not found, creating basic version"
-            cat > /usr/local/bin/web-dashboard.py << 'BASIC_WEB'
-          #!/usr/bin/env python3
-          from flask import Flask
-          app = Flask(__name__)
+                  cat > stage2/99-web-dashboard/00-run.sh << 'WEBRUN'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  # Install web dashboard
+                  if [ -f "/tmp/files/web-dashboard.py" ]; then
+                    install -m 755 /tmp/files/web-dashboard.py /usr/local/bin/
+                  else
+                    echo "web-dashboard.py not found, creating basic version"
+                    cat > /usr/local/bin/web-dashboard.py << 'BASIC_WEB'
+                  #!/usr/bin/env python3
+                  from flask import Flask
+                  app = Flask(__name__)
 
-          @app.route('/')
-          def dashboard():
-              return '<h1>Raspberry Pi Custom OS Dashboard</h1><p>System is running!</p>'
+                  @app.route('/')
+                  def dashboard():
+                      return '<h1>Raspberry Pi Custom OS Dashboard</h1><p>System is running!</p>'
 
-          if __name__ == '__main__':
-              app.run(host='0.0.0.0', port=8080, debug=False)
-          BASIC_WEB
-            chmod +x /usr/local/bin/web-dashboard.py
-          fi
+                  if __name__ == '__main__':
+                      app.run(host='0.0.0.0', port=8080, debug=False)
+                  BASIC_WEB
+                    chmod +x /usr/local/bin/web-dashboard.py
+                  fi
 
-          # Create systemd service for web dashboard
-          cat > /etc/systemd/system/web-dashboard.service << 'WEBSERVICE'
-          [Unit]
-          Description=Web Dashboard
-          After=network.target
+                  # Create systemd service for web dashboard
+                  cat > /etc/systemd/system/web-dashboard.service << 'WEBSERVICE'
+                  [Unit]
+                  Description=Web Dashboard
+                  After=network.target
 
-          [Service]
-          Type=simple
-          User=pi
-          WorkingDirectory=/home/pi
-          ExecStart=/usr/bin/python3 /usr/local/bin/web-dashboard.py
-          Restart=always
+                  [Service]
+                  Type=simple
+                  User=pi
+                  WorkingDirectory=/home/pi
+                  ExecStart=/usr/bin/python3 /usr/local/bin/web-dashboard.py
+                  Restart=always
 
-          [Install]
-          WantedBy=multi-user.target
-          WEBSERVICE
+                  [Install]
+                  WantedBy=multi-user.target
+                  WEBSERVICE
 
-          # Enable web dashboard service
-          systemctl enable web-dashboard.service
+                  # Enable web dashboard service
+                  systemctl enable web-dashboard.service
 
-          # Configure nginx for web dashboard
-          cat > /etc/nginx/sites-available/web-dashboard << 'NGINXCONF'
-          server {
-              listen 80;
-              server_name _;
-              
-              location / {
-                  proxy_pass http://127.0.0.1:8080;
-                  proxy_set_header Host \$host;
-                  proxy_set_header X-Real-IP \$remote_addr;
-                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto \$scheme;
-              }
-          }
-          NGINXCONF
-
-          # Enable nginx site
-          ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
-          rm -f /etc/nginx/sites-enabled/default
-
-          # Configure shairport-sync
-          cat > /etc/shairport-sync.conf << 'SHAIRPORT'
-          general = {
-              name = "Raspberry Pi Custom OS";
-              output_backend = "alsa";
-              mixer_control_name = "PCM";
-          }
-
-          alsa = {
-              output_device = "hw:0";
-              mixer_control_name = "PCM";
-          }
-          SHAIRPORT
-
-          # Create Google Cast service
-          cat > /usr/local/bin/google-cast-server.py << 'CASTSERVER'
-          #!/usr/bin/env python3
-          import http.server
-          import socketserver
-          import json
-          import subprocess
-          import os
-
-          class CastHandler(http.server.BaseHTTPRequestHandler):
-              def do_GET(self):
-                  if self.path == '/':
-                      self.send_response(200)
-                      self.send_header('Content-type', 'text/html')
-                      self.end_headers()
-                      self.wfile.write(b'<h1>Google Cast Server Ready</h1><p>Cast to this device!</p>')
-                  elif self.path == '/cast':
-                      self.send_response(200)
-                      self.send_header('Content-type', 'application/json')
-                      self.end_headers()
-                      self.wfile.write(json.dumps({'status': 'ready'}).encode())
-              
-              def do_POST(self):
-                  if self.path == '/cast':
-                      content_length = int(self.headers['Content-Length'])
-                      post_data = self.rfile.read(content_length)
-                      data = json.loads(post_data.decode('utf-8'))
+                  # Configure nginx for web dashboard
+                  cat > /etc/nginx/sites-available/web-dashboard << 'NGINXCONF'
+                  server {
+                      listen 80;
+                      server_name _;
                       
-                      if 'url' in data:
-                          # Handle cast request
-                          subprocess.Popen(['chromium-browser', '--kiosk', data['url']])
-                      
-                      self.send_response(200)
-                      self.send_header('Content-type', 'application/json')
-                      self.end_headers()
-                      self.wfile.write(json.dumps({'status': 'casted'}).encode())
+                      location / {
+                          proxy_pass http://127.0.0.1:8080;
+                          proxy_set_header Host \$host;
+                          proxy_set_header X-Real-IP \$remote_addr;
+                          proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                          proxy_set_header X-Forwarded-Proto \$scheme;
+                      }
+                  }
+                  NGINXCONF
 
-          if __name__ == '__main__':
-              PORT = 8081
-              with socketserver.TCPServer(("", PORT), CastHandler) as httpd:
-                  print(f"Google Cast server running on port {PORT}")
-                  httpd.serve_forever()
-          CASTSERVER
+                  # Enable nginx site
+                  ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
+                  rm -f /etc/nginx/sites-enabled/default
 
-          chmod +x /usr/local/bin/google-cast-server.py
+                  # Configure shairport-sync
+                  cat > /etc/shairport-sync.conf << 'SHAIRPORT'
+                  general = {
+                      name = "Raspberry Pi Custom OS";
+                      output_backend = "alsa";
+                      mixer_control_name = "PCM";
+                  }
 
-          # Create Google Cast service
-          cat > /etc/systemd/system/google-cast.service << 'CASTSERVICE'
-          [Unit]
-          Description=Google Cast Server
-          After=network.target
+                  alsa = {
+                      output_device = "hw:0";
+                      mixer_control_name = "PCM";
+                  }
+                  SHAIRPORT
 
-          [Service]
-          Type=simple
-          User=pi
-          WorkingDirectory=/home/pi
-          ExecStart=/usr/bin/python3 /usr/local/bin/google-cast-server.py
-          Restart=always
+                  # Create Google Cast service
+                  cat > /usr/local/bin/google-cast-server.py << 'CASTSERVER'
+                  #!/usr/bin/env python3
+                  import http.server
+                  import socketserver
+                  import json
+                  import subprocess
+                  import os
 
-          [Install]
-          WantedBy=multi-user.target
-          CASTSERVICE
-
-          systemctl enable google-cast.service
-
-          # Ensure SSH is enabled
-          systemctl enable ssh
-
-          # Set up proper permissions
-          chown -R pi:pi /home/pi
-          chmod +x /usr/local/bin/*.py
-          EOFCHROOT
-          WEBRUN
-
-          chmod +x stage2/99-web-dashboard/00-run.sh
-
-          # Add advanced casting services to stage2
-          mkdir -p stage2/99-advanced-casting/files
-
-          cat > stage2/99-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
-          #!/usr/bin/env python3
-          import subprocess
-          import os
-          import signal
-          import sys
-
-          class AirPlayReceiver:
-              def __init__(self):
-                  self.process = None
-              
-              def start(self):
-                  try:
-                      # Start shairport-sync with enhanced configuration
-                      cmd = [
-                          'shairport-sync',
-                          '--name', 'Raspberry Pi Custom OS',
-                          '--output', 'alsa',
-                          '--mixer', 'PCM',
-                          '--volume-range-db', '20',
-                          '--log-level', 'info'
-                      ]
-                      self.process = subprocess.Popen(cmd)
-                      print("AirPlay receiver started successfully")
-                      return True
-                  except Exception as e:
-                      print(f"Failed to start AirPlay receiver: {e}")
-                      return False
-              
-              def stop(self):
-                  if self.process:
-                      self.process.terminate()
-                      self.process.wait()
-                      print("AirPlay receiver stopped")
-              
-              def restart(self):
-                  self.stop()
-                  return self.start()
-
-          if __name__ == '__main__':
-              receiver = AirPlayReceiver()
-              
-              def signal_handler(sig, frame):
-                  receiver.stop()
-                  sys.exit(0)
-              
-              signal.signal(signal.SIGINT, signal_handler)
-              signal.signal(signal.SIGTERM, signal_handler)
-              
-              if receiver.start():
-                  try:
-                      receiver.process.wait()
-                  except KeyboardInterrupt:
-                      receiver.stop()
-          AIRPLAY
-
-          cat > stage2/99-advanced-casting/files/miracast-receiver.py << 'MIRACAST'
-          #!/usr/bin/env python3
-          import subprocess
-          import os
-          import signal
-          import sys
-
-          class MiracastReceiver:
-              def __init__(self):
-                  self.process = None
-              
-              def start(self):
-                  try:
-                      # Use VLC for Miracast-like functionality
-                      cmd = [
-                          'vlc',
-                          '--intf', 'http',
-                          '--http-port', '8082',
-                          '--extraintf', 'http',
-                          '--sout', '#display'
-                      ]
-                      self.process = subprocess.Popen(cmd)
-                      print("Miracast receiver started on port 8082")
-                      return True
-                  except Exception as e:
-                      print(f"Failed to start Miracast receiver: {e}")
-                      return False
-              
-              def stop(self):
-                  if self.process:
-                      self.process.terminate()
-                      self.process.wait()
-                      print("Miracast receiver stopped")
-
-          if __name__ == '__main__':
-              receiver = MiracastReceiver()
-              
-              def signal_handler(sig, frame):
-                  receiver.stop()
-                  sys.exit(0)
-              
-              signal.signal(signal.SIGINT, signal_handler)
-              signal.signal(signal.SIGTERM, signal_handler)
-              
-              if receiver.start():
-                  try:
-                      receiver.process.wait()
-                  except KeyboardInterrupt:
-                      receiver.stop()
-          MIRACAST
-
-          cat > stage2/99-advanced-casting/files/dlna-server.py << 'DLNA'
-          #!/usr/bin/env python3
-          import http.server
-          import socketserver
-          import json
-          import os
-          import mimetypes
-          from urllib.parse import urlparse, unquote
-
-          class DLNAServer:
-              def __init__(self, port=8083, media_dir="/home/pi/Media"):
-                  self.port = port
-                  self.media_dir = media_dir
-                  os.makedirs(media_dir, exist_ok=True)
-              
-              def start(self):
-                  handler = self.create_handler()
-                  with socketserver.TCPServer(("", self.port), handler) as httpd:
-                      print(f"DLNA server running on port {self.port}")
-                      print(f"Media directory: {self.media_dir}")
-                      httpd.serve_forever()
-              
-              def create_handler(self):
-                  class DLNAHandler(http.server.SimpleHTTPRequestHandler):
-                      def __init__(self, *args, **kwargs):
-                          super().__init__(*args, directory=self.media_dir, **kwargs)
-                      
+                  class CastHandler(http.server.BaseHTTPRequestHandler):
                       def do_GET(self):
                           if self.path == '/':
                               self.send_response(200)
                               self.send_header('Content-type', 'text/html')
                               self.end_headers()
-                              self.wfile.write(b'''
-                              <h1>DLNA Media Server</h1>
-                              <p>Media files available for streaming</p>
-                              <ul>
-                              <li><a href="/">Browse Media</a></li>
-                              </ul>
-                              ''')
-                          else:
-                              super().do_GET()
-                      
-                      def do_POST(self):
-                          if self.path == '/upload':
-                              content_length = int(self.headers['Content-Length'])
-                              post_data = self.rfile.read(content_length)
-                              # Handle file upload
+                              self.wfile.write(b'<h1>Google Cast Server Ready</h1><p>Cast to this device!</p>')
+                          elif self.path == '/cast':
                               self.send_response(200)
                               self.send_header('Content-type', 'application/json')
                               self.end_headers()
-                              self.wfile.write(json.dumps({'status': 'uploaded'}).encode())
-                          else:
-                              super().do_POST()
-                  
-                  return DLNAHandler
+                              self.wfile.write(json.dumps({'status': 'ready'}).encode())
+                      
+                      def do_POST(self):
+                          if self.path == '/cast':
+                              content_length = int(self.headers['Content-Length'])
+                              post_data = self.rfile.read(content_length)
+                              data = json.loads(post_data.decode('utf-8'))
+                              
+                              if 'url' in data:
+                                  # Handle cast request
+                                  subprocess.Popen(['chromium-browser', '--kiosk', data['url']])
+                              
+                              self.send_response(200)
+                              self.send_header('Content-type', 'application/json')
+                              self.end_headers()
+                              self.wfile.write(json.dumps({'status': 'casted'}).encode())
 
-          if __name__ == '__main__':
-              server = DLNAServer()
-              server.start()
-          DLNA
+                  if __name__ == '__main__':
+                      PORT = 8081
+                      with socketserver.TCPServer(("", PORT), CastHandler) as httpd:
+                          print(f"Google Cast server running on port {PORT}")
+                          httpd.serve_forever()
+                  CASTSERVER
 
-          cat > stage2/99-advanced-casting/00-run.sh << 'CASTING'
-          #!/bin/bash -e
-          on_chroot << EOFCHROOT
-          # Install advanced casting services
-          if [ -f "/tmp/files/airplay-receiver.py" ]; then
-            install -m 755 /tmp/files/airplay-receiver.py /usr/local/bin/
-          else
-            echo "airplay-receiver.py not found, creating basic version"
-            cat > /usr/local/bin/airplay-receiver.py << 'BASIC_AIRPLAY'
-          #!/usr/bin/env python3
-          print("AirPlay receiver service started")
-          import time
-          while True:
-              time.sleep(60)
-          BASIC_AIRPLAY
-            chmod +x /usr/local/bin/airplay-receiver.py
-          fi
+                  chmod +x /usr/local/bin/google-cast-server.py
 
-          if [ -f "/tmp/files/miracast-receiver.py" ]; then
-            install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
-          else
-            echo "miracast-receiver.py not found, creating basic version"
-            cat > /usr/local/bin/miracast-receiver.py << 'BASIC_MIRACAST'
-          #!/usr/bin/env python3
-          print("Miracast receiver service started")
-          import time
-          while True:
-              time.sleep(60)
-          BASIC_MIRACAST
-            chmod +x /usr/local/bin/miracast-receiver.py
-          fi
+                  # Create Google Cast service
+                  cat > /etc/systemd/system/google-cast.service << 'CASTSERVICE'
+                  [Unit]
+                  Description=Google Cast Server
+                  After=network.target
 
-          if [ -f "/tmp/files/dlna-server.py" ]; then
-            install -m 755 /tmp/files/dlna-server.py /usr/local/bin/
-          else
-            echo "dlna-server.py not found, creating basic version"
-            cat > /usr/local/bin/dlna-server.py << 'BASIC_DLNA'
-          #!/usr/bin/env python3
-          print("DLNA server service started")
-          import time
-          while True:
-              time.sleep(60)
-          BASIC_DLNA
-            chmod +x /usr/local/bin/dlna-server.py
-          fi
+                  [Service]
+                  Type=simple
+                  User=pi
+                  WorkingDirectory=/home/pi
+                  ExecStart=/usr/bin/python3 /usr/local/bin/google-cast-server.py
+                  Restart=always
 
-          # Create systemd services for advanced casting
-          cat > /etc/systemd/system/airplay-receiver.service << 'AIRPLAYSERVICE'
-          [Unit]
-          Description=Enhanced AirPlay Receiver
-          After=network.target sound.target
+                  [Install]
+                  WantedBy=multi-user.target
+                  CASTSERVICE
 
-          [Service]
-          Type=simple
-          User=pi
-          WorkingDirectory=/home/pi
-          ExecStart=/usr/bin/python3 /usr/local/bin/airplay-receiver.py
-          Restart=always
+                  systemctl enable google-cast.service
 
-          [Install]
-          WantedBy=multi-user.target
-          AIRPLAYSERVICE
+                  # Ensure SSH is enabled
+                  systemctl enable ssh
 
-          cat > /etc/systemd/system/miracast-receiver.service << 'MIRACASTSERVICE'
-          [Unit]
-          Description=Miracast Receiver (VLC)
-          After=network.target
+                  # Set up proper permissions
+                  chown -R pi:pi /home/pi
+                  chmod +x /usr/local/bin/*.py
+                  EOFCHROOT
+                  WEBRUN
 
-          [Service]
-          Type=simple
-          User=pi
-          WorkingDirectory=/home/pi
-          ExecStart=/usr/bin/python3 /usr/local/bin/miracast-receiver.py
-          Restart=always
+                  chmod +x stage2/99-web-dashboard/00-run.sh
 
-          [Install]
-          WantedBy=multi-user.target
-          MIRACASTSERVICE
+                  # Add advanced casting services to stage2
+                  mkdir -p stage2/99-advanced-casting/files
 
-          cat > /etc/systemd/system/dlna-server.service << 'DLNASERVICE'
-          [Unit]
-          Description=DLNA Media Server
-          After=network.target
+                  cat > stage2/99-advanced-casting/files/airplay-receiver.py << 'AIRPLAY'
+                  #!/usr/bin/env python3
+                  import subprocess
+                  import os
+                  import signal
+                  import sys
 
-          [Service]
-          Type=simple
-          User=pi
-          WorkingDirectory=/home/pi
-          ExecStart=/usr/bin/python3 /usr/local/bin/dlna-server.py
-          Restart=always
+                  class AirPlayReceiver:
+                      def __init__(self):
+                          self.process = None
+                      
+                      def start(self):
+                          try:
+                              # Start shairport-sync with enhanced configuration
+                              cmd = [
+                                  'shairport-sync',
+                                  '--name', 'Raspberry Pi Custom OS',
+                                  '--output', 'alsa',
+                                  '--mixer', 'PCM',
+                                  '--volume-range-db', '20',
+                                  '--log-level', 'info'
+                              ]
+                              self.process = subprocess.Popen(cmd)
+                              print("AirPlay receiver started successfully")
+                              return True
+                          except Exception as e:
+                              print(f"Failed to start AirPlay receiver: {e}")
+                              return False
+                      
+                      def stop(self):
+                          if self.process:
+                              self.process.terminate()
+                              self.process.wait()
+                              print("AirPlay receiver stopped")
+                      
+                      def restart(self):
+                          self.stop()
+                          return self.start()
 
-          [Install]
-          WantedBy=multi-user.target
-          DLNASERVICE
+                  if __name__ == '__main__':
+                      receiver = AirPlayReceiver()
+                      
+                      def signal_handler(sig, frame):
+                          receiver.stop()
+                          sys.exit(0)
+                      
+                      signal.signal(signal.SIGINT, signal_handler)
+                      signal.signal(signal.SIGTERM, signal_handler)
+                      
+                      if receiver.start():
+                          try:
+                              receiver.process.wait()
+                          except KeyboardInterrupt:
+                              receiver.stop()
+                  AIRPLAY
 
-          # Enable all casting services
-          systemctl enable airplay-receiver.service
-          systemctl enable miracast-receiver.service
-          systemctl enable dlna-server.service
+                  cat > stage2/99-advanced-casting/files/miracast-receiver.py << 'MIRACAST'
+                  #!/usr/bin/env python3
+                  import subprocess
+                  import os
+                  import signal
+                  import sys
 
-          # Create media directory
-          mkdir -p /home/pi/Media
-          chown -R pi:pi /home/pi/Media
+                  class MiracastReceiver:
+                      def __init__(self):
+                          self.process = None
+                      
+                      def start(self):
+                          try:
+                              # Use VLC for Miracast-like functionality
+                              cmd = [
+                                  'vlc',
+                                  '--intf', 'http',
+                                  '--http-port', '8082',
+                                  '--extraintf', 'http',
+                                  '--sout', '#display'
+                              ]
+                              self.process = subprocess.Popen(cmd)
+                              print("Miracast receiver started on port 8082")
+                              return True
+                          except Exception as e:
+                              print(f"Failed to start Miracast receiver: {e}")
+                              return False
+                      
+                      def stop(self):
+                          if self.process:
+                              self.process.terminate()
+                              self.process.wait()
+                              print("Miracast receiver stopped")
 
-          # Install additional Python packages for casting (using apt instead of pip)
-          apt-get install -y python3-pychromecast python3-zeroconf || true
+                  if __name__ == '__main__':
+                      receiver = MiracastReceiver()
+                      
+                      def signal_handler(sig, frame):
+                          receiver.stop()
+                          sys.exit(0)
+                      
+                      signal.signal(signal.SIGINT, signal_handler)
+                      signal.signal(signal.SIGTERM, signal_handler)
+                      
+                      if receiver.start():
+                          try:
+                              receiver.process.wait()
+                          except KeyboardInterrupt:
+                              receiver.stop()
+                  MIRACAST
 
-          # Configure enhanced shairport-sync
-          cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
-          general = {
-              name = "Raspberry Pi Custom OS";
-              output_backend = "alsa";
-              mixer_control_name = "PCM";
-              volume_range_db = 20;
-              log_level = 1;
-              log_verbosity = 1;
-          }
+                  cat > stage2/99-advanced-casting/files/dlna-server.py << 'DLNA'
+                  #!/usr/bin/env python3
+                  import http.server
+                  import socketserver
+                  import json
+                  import os
+                  import mimetypes
+                  from urllib.parse import urlparse, unquote
 
-          alsa = {
-              output_device = "hw:0";
-              mixer_control_name = "PCM";
-              mixer_device = "hw:0";
-          }
+                  class DLNAServer:
+                      def __init__(self, port=8083, media_dir="/home/pi/Media"):
+                          self.port = port
+                          self.media_dir = media_dir
+                          os.makedirs(media_dir, exist_ok=True)
+                      
+                      def start(self):
+                          handler = self.create_handler()
+                          with socketserver.TCPServer(("", self.port), handler) as httpd:
+                              print(f"DLNA server running on port {self.port}")
+                              print(f"Media directory: {self.media_dir}")
+                              httpd.serve_forever()
+                      
+                      def create_handler(self):
+                          class DLNAHandler(http.server.SimpleHTTPRequestHandler):
+                              def __init__(self, *args, **kwargs):
+                                  super().__init__(*args, directory=self.media_dir, **kwargs)
+                              
+                              def do_GET(self):
+                                  if self.path == '/':
+                                      self.send_response(200)
+                                      self.send_header('Content-type', 'text/html')
+                                      self.end_headers()
+                                      self.wfile.write(b'''
+                                      <h1>DLNA Media Server</h1>
+                                      <p>Media files available for streaming</p>
+                                      <ul>
+                                      <li><a href="/">Browse Media</a></li>
+                                      </ul>
+                                      ''')
+                                  else:
+                                      super().do_GET()
+                              
+                              def do_POST(self):
+                                  if self.path == '/upload':
+                                      content_length = int(self.headers['Content-Length'])
+                                      post_data = self.rfile.read(content_length)
+                                      # Handle file upload
+                                      self.send_response(200)
+                                      self.send_header('Content-type', 'application/json')
+                                      self.end_headers()
+                                      self.wfile.write(json.dumps({'status': 'uploaded'}).encode())
+                                  else:
+                                      super().do_POST()
+                          
+                          return DLNAHandler
 
-          sessioncontrol = {
-              session_timeout = 20;
-          }
-          ENHANCED_SHAIRPORT
+                  if __name__ == '__main__':
+                      server = DLNAServer()
+                      server.start()
+                  DLNA
 
-          # Configure PulseAudio for better audio
-          mkdir -p /etc/pulse
-          cat > /etc/pulse/default.pa << 'PULSEAUDIO'
-          load-module module-device-restore
-          load-module module-stream-restore
-          load-module module-card-restore
-          load-module module-augment-properties
-          load-module module-switch-on-port-available
-          load-module module-alsa-sink
-          load-module module-alsa-source device=hw:1,0
-          load-module module-native-protocol-unix
-          PULSEAUDIO
+                  cat > stage2/99-advanced-casting/00-run.sh << 'CASTING'
+                  #!/bin/bash -e
+                  on_chroot << EOFCHROOT
+                  # Install advanced casting services
+                  if [ -f "/tmp/files/airplay-receiver.py" ]; then
+                    install -m 755 /tmp/files/airplay-receiver.py /usr/local/bin/
+                  else
+                    echo "airplay-receiver.py not found, creating basic version"
+                    cat > /usr/local/bin/airplay-receiver.py << 'BASIC_AIRPLAY'
+                  #!/usr/bin/env python3
+                  print("AirPlay receiver service started")
+                  import time
+                  while True:
+                      time.sleep(60)
+                  BASIC_AIRPLAY
+                    chmod +x /usr/local/bin/airplay-receiver.py
+                  fi
 
-          # Set up audio permissions
-          usermod -a -G audio pi
-          # Create pulse groups if they don't exist
-          groupadd pulse 2>/dev/null || true
-          groupadd pulse-access 2>/dev/null || true
-          usermod -a -G pulse pi 2>/dev/null || true
-          usermod -a -G pulse-access pi 2>/dev/null || true
+                  if [ -f "/tmp/files/miracast-receiver.py" ]; then
+                    install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
+                  else
+                    echo "miracast-receiver.py not found, creating basic version"
+                    cat > /usr/local/bin/miracast-receiver.py << 'BASIC_MIRACAST'
+                  #!/usr/bin/env python3
+                  print("Miracast receiver service started")
+                  import time
+                  while True:
+                      time.sleep(60)
+                  BASIC_MIRACAST
+                    chmod +x /usr/local/bin/miracast-receiver.py
+                  fi
 
-          EOFCHROOT
-          CASTING
+                  if [ -f "/tmp/files/dlna-server.py" ]; then
+                    install -m 755 /tmp/files/dlna-server.py /usr/local/bin/
+                  else
+                    echo "dlna-server.py not found, creating basic version"
+                    cat > /usr/local/bin/dlna-server.py << 'BASIC_DLNA'
+                  #!/usr/bin/env python3
+                  print("DLNA server service started")
+                  import time
+                  while True:
+                      time.sleep(60)
+                  BASIC_DLNA
+                    chmod +x /usr/local/bin/dlna-server.py
+                  fi
 
-          chmod +x stage2/99-advanced-casting/00-run.sh
+                  # Create systemd services for advanced casting
+                  cat > /etc/systemd/system/airplay-receiver.service << 'AIRPLAYSERVICE'
+                  [Unit]
+                  Description=Enhanced AirPlay Receiver
+                  After=network.target sound.target
 
-          echo "✅ pi-gen configured with custom packages"
+                  [Service]
+                  Type=simple
+                  User=pi
+                  WorkingDirectory=/home/pi
+                  ExecStart=/usr/bin/python3 /usr/local/bin/airplay-receiver.py
+                  Restart=always
 
-      - name: Build Custom OS
-        run: |
-          cd pi-gen
-          # Run build script with sudo
-          sudo ./build.sh
+                  [Install]
+                  WantedBy=multi-user.target
+                  AIRPLAYSERVICE
 
-      - name: List generated files
-        run: |
-          cd pi-gen/deploy
-          ls -lh
-          echo "Build complete!"
+                  cat > /etc/systemd/system/miracast-receiver.service << 'MIRACASTSERVICE'
+                  [Unit]
+                  Description=Miracast Receiver (VLC)
+                  After=network.target
 
-      - name: Fix permissions for deploy directory
-        run: |
-          sudo chown -R $USER:$USER pi-gen/deploy
+                  [Service]
+                  Type=simple
+                  User=pi
+                  WorkingDirectory=/home/pi
+                  ExecStart=/usr/bin/python3 /usr/local/bin/miracast-receiver.py
+                  Restart=always
 
-      - name: Upload Custom OS Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: custom-raspberry-pi-os
-          path: pi-gen/deploy/*.zip
-          retention-days: 30
+                  [Install]
+                  WantedBy=multi-user.target
+                  MIRACASTSERVICE
 
-      - name: Create release info
-        run: |
-          cd pi-gen/deploy
-          echo "# Custom Raspberry Pi OS Build" > release-info.txt
-          echo "" >> release-info.txt
-          echo "Build Date: $(date)" >> release-info.txt
-          echo "Image Name: CustomRaspberryPi3B" >> release-info.txt
-          echo "" >> release-info.txt
-          echo "## Features Included:" >> release-info.txt
-          echo "- Desktop environment (LXDE)" >> release-info.txt
-          echo "- Python 3 + PyQt5" >> release-info.txt
-          echo "- AirPlay receiver (shairport-sync)" >> release-info.txt
-          echo "- Google Cast support" >> release-info.txt
-          echo "- Web dashboard (Nginx)" >> release-info.txt
-          echo "- File sharing (Samba)" >> release-info.txt
-          echo "- SSH enabled" >> release-info.txt
-          echo "- WiFi tools" >> release-info.txt
-          echo "- Auto-login as 'pi'" >> release-info.txt
-          echo "" >> release-info.txt
-          echo "## Default Credentials:" >> release-info.txt
-          echo "- Username: pi" >> release-info.txt
-          echo "- Password: raspberry" >> release-info.txt
-          echo "- Hostname: raspberrypi-custom" >> release-info.txt
-          cat release-info.txt
+                  cat > /etc/systemd/system/dlna-server.service << 'DLNASERVICE'
+                  [Unit]
+                  Description=DLNA Media Server
+                  After=network.target
 
-      - name: Upload release info
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-info
-          path: pi-gen/deploy/release-info.txt
+                  [Service]
+                  Type=simple
+                  User=pi
+                  WorkingDirectory=/home/pi
+                  ExecStart=/usr/bin/python3 /usr/local/bin/dlna-server.py
+                  Restart=always
+
+                  [Install]
+                  WantedBy=multi-user.target
+                  DLNASERVICE
+
+                  # Enable all casting services
+                  systemctl enable airplay-receiver.service
+                  systemctl enable miracast-receiver.service
+                  systemctl enable dlna-server.service
+
+                  # Create media directory
+                  mkdir -p /home/pi/Media
+                  chown -R pi:pi /home/pi/Media
+
+                  # Install additional Python packages for casting (using apt instead of pip)
+                  apt-get install -y python3-pychromecast python3-zeroconf || true
+
+                  # Configure enhanced shairport-sync
+                  cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
+                  general = {
+                      name = "Raspberry Pi Custom OS";
+                      output_backend = "alsa";
+                      mixer_control_name = "PCM";
+                      volume_range_db = 20;
+                      log_level = 1;
+                      log_verbosity = 1;
+                  }
+
+                  alsa = {
+                      output_device = "hw:0";
+                      mixer_control_name = "PCM";
+                      mixer_device = "hw:0";
+                  }
+
+                  sessioncontrol = {
+                      session_timeout = 20;
+                  }
+                  ENHANCED_SHAIRPORT
+
+                  # Configure PulseAudio for better audio
+                  mkdir -p /etc/pulse
+                  cat > /etc/pulse/default.pa << 'PULSEAUDIO'
+                  load-module module-device-restore
+                  load-module module-stream-restore
+                  load-module module-card-restore
+                  load-module module-augment-properties
+                  load-module module-switch-on-port-available
+                  load-module module-alsa-sink
+                  load-module module-alsa-source device=hw:1,0
+                  load-module module-native-protocol-unix
+                  PULSEAUDIO
+
+                  # Set up audio permissions
+                  usermod -a -G audio pi
+                  # Create pulse groups if they don't exist
+                  groupadd pulse 2>/dev/null || true
+                  groupadd pulse-access 2>/dev/null || true
+                  usermod -a -G pulse pi 2>/dev/null || true
+                  usermod -a -G pulse-access pi 2>/dev/null || true
+
+                  EOFCHROOT
+                  CASTING
+
+                  chmod +x stage2/99-advanced-casting/00-run.sh
+
+                  echo "✅ pi-gen configured with custom packages"
+
+            - name: Build Custom OS
+              run: |
+                  cd pi-gen
+                  # Run build script with sudo
+                  sudo ./build.sh
+
+            - name: List generated files
+              run: |
+                  cd pi-gen/deploy
+                  ls -lh
+                  echo "Build complete!"
+
+            - name: Fix permissions for deploy directory
+              run: |
+                  sudo chown -R $USER:$USER pi-gen/deploy
+
+            - name: Upload Custom OS Image
+              uses: actions/upload-artifact@v4
+              with:
+                  name: custom-raspberry-pi-os
+                  path: pi-gen/deploy/*.zip
+                  retention-days: 30
+
+            - name: Create release info
+              run: |
+                  cd pi-gen/deploy
+                  echo "# Custom Raspberry Pi OS Build" > release-info.txt
+                  echo "" >> release-info.txt
+                  echo "Build Date: $(date)" >> release-info.txt
+                  echo "Image Name: CustomRaspberryPi3B" >> release-info.txt
+                  echo "" >> release-info.txt
+                  echo "## Features Included:" >> release-info.txt
+                  echo "- Desktop environment (LXDE)" >> release-info.txt
+                  echo "- Python 3 + PyQt5" >> release-info.txt
+                  echo "- AirPlay receiver (shairport-sync)" >> release-info.txt
+                  echo "- Google Cast support" >> release-info.txt
+                  echo "- Web dashboard (Nginx)" >> release-info.txt
+                  echo "- File sharing (Samba)" >> release-info.txt
+                  echo "- SSH enabled" >> release-info.txt
+                  echo "- WiFi tools" >> release-info.txt
+                  echo "- Auto-login as 'pi'" >> release-info.txt
+                  echo "" >> release-info.txt
+                  echo "## Default Credentials:" >> release-info.txt
+                  echo "- Username: pi" >> release-info.txt
+                  echo "- Password: raspberry" >> release-info.txt
+                  echo "- Hostname: raspberrypi-custom" >> release-info.txt
+                  cat release-info.txt
+
+            - name: Upload release info
+              uses: actions/upload-artifact@v4
+              with:
+                  name: release-info
+                  path: pi-gen/deploy/release-info.txt
