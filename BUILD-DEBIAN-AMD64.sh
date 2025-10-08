@@ -195,7 +195,9 @@ cat > stage2/99-custom-packages/00-packages << 'EOFPKG'
 # Core Python packages
 python3
 python3-pip
-python3-pyqt5
+python3-gi
+python3-gi-cairo
+gir1.2-gtk-3.0
 python3-psutil
 python3-requests
 python3-flask
@@ -272,12 +274,15 @@ chmod +x stage2/99-custom-packages/00-run.sh
 log "Creating custom GUI configuration..."
 mkdir -p stage2/99-custom-gui/files
 
-# Copy GUI file if exists
-if [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+# Copy Smart TV GUI file if exists
+if [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
+    cp ../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py stage2/99-custom-gui/files/raspberry-pi-gui.py
+    log "✓ Smart TV GUI script copied"
+elif [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
     cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
     log "✓ Custom GUI script copied"
 else
-    warn "Custom GUI script not found, will create basic version during build"
+    warn "Custom GUI script not found, will create Smart TV version during build"
 fi
 
 cat > stage2/99-custom-gui/00-run.sh << 'EOFGUI'
@@ -291,65 +296,162 @@ if [ -f "/tmp/files/raspberry-pi-gui.py" ]; then
   install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
   echo "Custom GUI script installed"
 else
-  echo "Custom GUI script not found, creating basic one"
+  echo "Custom GUI script not found, creating GTK-based one"
   cat > /usr/local/bin/raspberry-pi-gui.py << 'GUISCRIPT'
 #!/usr/bin/env python3
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GLib
 import psutil
+import subprocess
 
-class SimpleGUI(QWidget):
+class RaspberryPiGUI(Gtk.Window):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Raspberry Pi Custom OS")
-        self.setGeometry(100, 100, 800, 600)
-        self.setWindowState(Qt.WindowFullScreen)
-        self.initUI()
-    
-    def initUI(self):
-        layout = QVBoxLayout()
+        super().__init__(title="Raspberry Pi Custom OS")
+        self.set_default_size(800, 600)
+        self.set_border_width(20)
+        self.fullscreen()
         
-        title = QLabel("🍓 Raspberry Pi Custom OS")
-        title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Arial", 24))
-        layout.addWidget(title)
+        # Main container
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+        vbox.set_halign(Gtk.Align.CENTER)
+        vbox.set_valign(Gtk.Align.CENTER)
+        self.add(vbox)
         
-        self.cpu_label = QLabel("CPU: Loading...")
-        self.cpu_label.setAlignment(Qt.AlignCenter)
-        self.cpu_label.setFont(QFont("Arial", 16))
-        layout.addWidget(self.cpu_label)
+        # Title
+        title = Gtk.Label()
+        title.set_markup('<span size="xx-large" weight="bold">🍓 Raspberry Pi Custom OS</span>')
+        vbox.pack_start(title, False, False, 10)
         
-        self.mem_label = QLabel("Memory: Loading...")
-        self.mem_label.setAlignment(Qt.AlignCenter)
-        self.mem_label.setFont(QFont("Arial", 16))
-        layout.addWidget(self.mem_label)
+        # System stats card
+        stats_frame = Gtk.Frame(label="System Status")
+        stats_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        stats_box.set_border_width(15)
+        stats_frame.add(stats_box)
         
-        info = QLabel("SSH: pi@raspberrypi-custom\nPassword: raspberry")
-        info.setAlignment(Qt.AlignCenter)
-        info.setFont(QFont("Arial", 14))
-        layout.addWidget(info)
+        self.cpu_label = Gtk.Label()
+        self.cpu_label.set_markup('<span size="large">CPU: Loading...</span>')
+        stats_box.pack_start(self.cpu_label, False, False, 5)
         
-        self.setLayout(layout)
+        self.mem_label = Gtk.Label()
+        self.mem_label.set_markup('<span size="large">Memory: Loading...</span>')
+        stats_box.pack_start(self.mem_label, False, False, 5)
+        
+        self.disk_label = Gtk.Label()
+        self.disk_label.set_markup('<span size="large">Disk: Loading...</span>')
+        stats_box.pack_start(self.disk_label, False, False, 5)
+        
+        self.temp_label = Gtk.Label()
+        self.temp_label.set_markup('<span size="large">Temp: Loading...</span>')
+        stats_box.pack_start(self.temp_label, False, False, 5)
+        
+        vbox.pack_start(stats_frame, False, False, 10)
+        
+        # Connection info
+        info_frame = Gtk.Frame(label="Connection Info")
+        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        info_box.set_border_width(15)
+        info_frame.add(info_box)
+        
+        ssh_label = Gtk.Label()
+        ssh_label.set_markup('<span size="medium">SSH: pi@raspberrypi-custom</span>')
+        info_box.pack_start(ssh_label, False, False, 5)
+        
+        pass_label = Gtk.Label()
+        pass_label.set_markup('<span size="medium">Password: raspberry</span>')
+        info_box.pack_start(pass_label, False, False, 5)
+        
+        web_label = Gtk.Label()
+        web_label.set_markup('<span size="medium">Web: http://raspberrypi-custom:8080</span>')
+        info_box.pack_start(web_label, False, False, 5)
+        
+        vbox.pack_start(info_frame, False, False, 10)
+        
+        # Buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        button_box.set_halign(Gtk.Align.CENTER)
+        
+        refresh_btn = Gtk.Button(label="Refresh")
+        refresh_btn.connect("clicked", self.on_refresh_clicked)
+        button_box.pack_start(refresh_btn, False, False, 0)
+        
+        terminal_btn = Gtk.Button(label="Terminal")
+        terminal_btn.connect("clicked", self.on_terminal_clicked)
+        button_box.pack_start(terminal_btn, False, False, 0)
+        
+        vbox.pack_start(button_box, False, False, 10)
         
         # Update stats every 2 seconds
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_stats)
-        self.timer.start(2000)
+        GLib.timeout_add_seconds(2, self.update_stats)
         self.update_stats()
+        
+        # Style
+        css = b"""
+        window {
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+        }
+        frame {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        frame > border {
+            border: none;
+        }
+        label {
+            color: #e94560;
+        }
+        """
+        
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(css)
+        context = Gtk.StyleContext()
+        screen = Gtk.gdk.Screen.get_default()
+        context.add_provider_for_screen(screen, css_provider, 
+                                       Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
     
     def update_stats(self):
-        cpu = psutil.cpu_percent(interval=0.1)
-        mem = psutil.virtual_memory().percent
-        self.cpu_label.setText(f"CPU: {cpu}%")
-        self.mem_label.setText(f"Memory: {mem}%")
+        try:
+            cpu = psutil.cpu_percent(interval=0.1)
+            mem = psutil.virtual_memory().percent
+            disk = psutil.disk_usage('/').percent
+            
+            # Get CPU temperature
+            try:
+                with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                    temp = int(f.read()) / 1000
+            except:
+                temp = 0
+            
+            self.cpu_label.set_markup(f'<span size="large">CPU: {cpu:.1f}%</span>')
+            self.mem_label.set_markup(f'<span size="large">Memory: {mem:.1f}%</span>')
+            self.disk_label.set_markup(f'<span size="large">Disk: {disk:.1f}%</span>')
+            self.temp_label.set_markup(f'<span size="large">Temp: {temp:.1f}°C</span>')
+        except Exception as e:
+            print(f"Error updating stats: {e}")
+        
+        return True
+    
+    def on_refresh_clicked(self, widget):
+        self.update_stats()
+    
+    def on_terminal_clicked(self, widget):
+        try:
+            subprocess.Popen(['lxterminal'])
+        except:
+            try:
+                subprocess.Popen(['xterm'])
+            except:
+                pass
+
+def main():
+    win = RaspberryPiGUI()
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    gui = SimpleGUI()
-    gui.show()
-    sys.exit(app.exec_())
+    main()
 GUISCRIPT
   chmod +x /usr/local/bin/raspberry-pi-gui.py
 fi
@@ -501,10 +603,11 @@ log "✓ Configuration complete!"
 echo ""
 
 info "Build will include:"
-info "  ✓ Python 3 + PyQt5"
+info "  ✓ Python 3 + GTK3"
 info "  ✓ Desktop environment (LXDE)"
-info "  ✓ Custom GUI dashboard"
-info "  ✓ AirPlay receiver (shairport-sync)"
+info "  ✓ Smart TV Interface (Netflix-style UI)"
+info "  ✓ AirPlay, Google Cast, Miracast"
+info "  ✓ Media apps (YouTube, VLC, Spotify)"
 info "  ✓ Web dashboard (port 8080)"
 info "  ✓ File sharing (Samba)"
 info "  ✓ SSH server"
@@ -673,16 +776,18 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
                 if [ -n "$ZIP_FILE" ]; then
                     gh release create "$RELEASE_TAG" "$ZIP_FILE" \
                         --title "$RELEASE_TITLE" \
-                        --notes "Custom Raspberry Pi OS Image
+                        --notes "Custom Raspberry Pi OS with Smart TV Interface
                         
 Features:
-- Desktop Environment (LXDE)
-- PyQt5 GUI Dashboard
-- AirPlay Receiver
-- Web Dashboard (port 8080)
-- File Sharing (Samba)
-- SSH Enabled
-- Auto-login as 'pi'
+- 📺 Smart TV Interface (Beautiful Netflix-style UI)
+- 📱 AirPlay, Google Cast & Miracast
+- 🎬 Media Apps (YouTube TV, VLC, Spotify, Plex)
+- 🎵 Audio & Video Streaming
+- 🌐 Web Dashboard (port 8080)
+- 📂 File Sharing (Samba)
+- 🔐 SSH Enabled
+- ⚡ Auto-login and auto-start
+- 🎨 GTK3 Native Interface
 
 Default Credentials:
 - Username: pi
