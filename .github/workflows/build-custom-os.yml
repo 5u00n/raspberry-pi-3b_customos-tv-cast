@@ -860,6 +860,7 @@ jobs:
           ENHANCED_SHAIRPORT
 
           # Configure PulseAudio for better audio
+          mkdir -p /etc/pulse
           cat > /etc/pulse/default.pa << 'PULSEAUDIO'
           load-module module-device-restore
           load-module module-stream-restore
