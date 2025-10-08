@@ -69,7 +69,9 @@ jobs:
           # Core Python packages
           python3
           python3-pip
-          python3-pyqt5
+          python3-gi
+          python3-gi-cairo
+          gir1.2-gtk-3.0
           python3-psutil
           python3-requests
           python3-flask
@@ -134,7 +136,7 @@ jobs:
           on_chroot << EOFCHROOT
           apt-get update
           apt-get upgrade -y
-          pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
+          # Packages are already installed via apt, no need for pip3
           systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
           systemctl set-default graphical.target
           EOFCHROOT
@@ -145,8 +147,10 @@ jobs:
           # Add GUI configuration to stage2
           mkdir -p stage2/99-custom-gui/files
 
-          # Copy GUI file if exists
-          if [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+          # Copy Smart TV GUI file if exists (prefer Smart TV version)
+          if [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
+            cp ../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py stage2/99-custom-gui/files/raspberry-pi-gui.py
+          elif [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
             cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
           fi
 
@@ -161,46 +165,44 @@ jobs:
             install -m 755 /tmp/files/raspberry-pi-gui.py /usr/local/bin/
             echo "Custom GUI script installed"
           else
-            echo "Custom GUI script not found, creating basic one"
+            echo "Custom GUI script not found, creating GTK-based Smart TV interface"
             cat > /usr/local/bin/raspberry-pi-gui.py << 'GUISCRIPT'
           #!/usr/bin/env python3
-          import sys
-          import os
-          try:
-              from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-              from PyQt5.QtCore import Qt
-              from PyQt5.QtGui import QFont
-              
-              class SimpleGUI(QWidget):
-                  def __init__(self):
-                      super().__init__()
-                      self.setWindowTitle("Raspberry Pi Custom OS")
-                      self.setGeometry(100, 100, 800, 600)
-                      self.setWindowState(Qt.WindowFullScreen)
-                      self.initUI()
+          import gi
+          gi.require_version('Gtk', '3.0')
+          from gi.repository import Gtk, GLib
+
+          class SimpleSmartTV(Gtk.Window):
+              def __init__(self):
+                  super().__init__(title="Raspberry Pi Smart TV")
+                  self.set_default_size(800, 600)
+                  self.fullscreen()
                   
-                  def initUI(self):
-                      layout = QVBoxLayout()
-                      
-                      title = QLabel("🍓 Raspberry Pi Custom OS")
-                      title.setAlignment(Qt.AlignCenter)
-                      title.setFont(QFont("Arial", 24))
-                      layout.addWidget(title)
-                      
-                      info = QLabel("System is starting up...\nSSH: pi@raspberrypi-custom\nPassword: raspberry")
-                      info.setAlignment(Qt.AlignCenter)
-                      info.setFont(QFont("Arial", 16))
-                      layout.addWidget(info)
-                      
-                      self.setLayout(layout)
-              
-              if __name__ == '__main__':
-                  app = QApplication(sys.argv)
-                  gui = SimpleGUI()
-                  gui.show()
-                  sys.exit(app.exec_())
-          except ImportError:
-              print("PyQt5 not available, skipping GUI")
+                  vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
+                  vbox.set_halign(Gtk.Align.CENTER)
+                  vbox.set_valign(Gtk.Align.CENTER)
+                  self.add(vbox)
+                  
+                  title = Gtk.Label()
+                  title.set_markup('<span size="xx-large" weight="bold">🍓 Raspberry Pi Smart TV</span>')
+                  vbox.pack_start(title, False, False, 20)
+                  
+                  subtitle = Gtk.Label()
+                  subtitle.set_markup('<span size="large">Cast from any device • Stream content • Control your media</span>')
+                  vbox.pack_start(subtitle, False, False, 10)
+                  
+                  info = Gtk.Label()
+                  info.set_markup('<span size="medium">SSH: pi@raspberrypi-custom | Password: raspberry\nWeb Dashboard: http://raspberrypi-custom:8080</span>')
+                  vbox.pack_start(info, False, False, 10)
+
+          def main():
+              win = SimpleSmartTV()
+              win.connect("destroy", Gtk.main_quit)
+              win.show_all()
+              Gtk.main()
+
+          if __name__ == '__main__':
+              main()
           GUISCRIPT
             chmod +x /usr/local/bin/raspberry-pi-gui.py
           fi
@@ -832,9 +834,8 @@ jobs:
           mkdir -p /home/pi/Media
           chown -R pi:pi /home/pi/Media
 
-          # Install additional Python packages for casting
-          pip3 install --break-system-packages pychromecast || pip3 install pychromecast
-          pip3 install --break-system-packages zeroconf || pip3 install zeroconf
+          # Install additional Python packages for casting (using apt instead of pip)
+          apt-get install -y python3-pychromecast python3-zeroconf || true
 
           # Configure enhanced shairport-sync
           cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'

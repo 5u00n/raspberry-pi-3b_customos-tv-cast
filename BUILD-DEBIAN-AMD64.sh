@@ -49,6 +49,26 @@ step() {
     echo ""
 }
 
+# Function to install missing package alternatives
+install_alternatives() {
+    local package=$1
+    case $package in
+        bsdtar|libarchive-tools)
+            log "Installing libarchive-tools (provides bsdtar)..."
+            sudo apt-get install -y libarchive-tools
+            ;;
+        pxz|pixz)
+            log "Trying to install parallel xz compression..."
+            sudo apt-get install -y pixz 2>/dev/null || \
+            sudo apt-get install -y pxz 2>/dev/null || \
+            log "Using standard xz-utils instead"
+            ;;
+        *)
+            sudo apt-get install -y "$package"
+            ;;
+    esac
+}
+
 # Check if running on correct architecture
 check_architecture() {
     ARCH=$(uname -m)
@@ -134,13 +154,57 @@ sudo apt-get install -y \
     fdisk \
     gpg \
     e2fsprogs \
-    bsdtar \
-    pxz \
     whois \
     python3 \
     python3-pip
 
-log "✓ All dependencies installed successfully!"
+# Install optional packages (may not be available on all systems)
+log "Installing optional compression tools..."
+sudo apt-get install -y pixz 2>/dev/null || sudo apt-get install -y pxz 2>/dev/null || warn "pixz/pxz not available, using xz-utils (slower but works)"
+
+# Verify critical tools
+log "Verifying installed tools..."
+MISSING_TOOLS=""
+
+# Check for bsdtar (from libarchive-tools)
+if ! command -v bsdtar &> /dev/null; then
+    warn "bsdtar not found in PATH, checking if tar can be used as fallback..."
+    if command -v tar &> /dev/null; then
+        log "✓ tar found as fallback"
+    else
+        MISSING_TOOLS="$MISSING_TOOLS tar/bsdtar"
+    fi
+else
+    log "✓ bsdtar found"
+fi
+
+# Check for compression tools
+if ! command -v pigz &> /dev/null; then
+    MISSING_TOOLS="$MISSING_TOOLS pigz"
+fi
+
+# Check for xz
+if ! command -v xz &> /dev/null; then
+    MISSING_TOOLS="$MISSING_TOOLS xz"
+fi
+
+# Check for qemu-arm-static
+if ! command -v qemu-arm-static &> /dev/null; then
+    warn "qemu-arm-static not found, checking alternatives..."
+    if [ -f /usr/bin/qemu-arm-static ]; then
+        log "✓ qemu-arm-static found in /usr/bin/"
+    else
+        MISSING_TOOLS="$MISSING_TOOLS qemu-arm-static"
+    fi
+else
+    log "✓ qemu-arm-static found"
+fi
+
+if [ -n "$MISSING_TOOLS" ]; then
+    error "Missing critical tools:$MISSING_TOOLS. Please install them manually."
+fi
+
+log "✓ All critical dependencies verified!"
 echo ""
 
 # Step 3: Clone and setup pi-gen
