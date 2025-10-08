@@ -416,11 +416,11 @@ jobs:
           #!/usr/bin/env python3
           from flask import Flask
           app = Flask(__name__)
-          
+
           @app.route('/')
           def dashboard():
               return '<h1>Raspberry Pi Custom OS Dashboard</h1><p>System is running!</p>'
-          
+
           if __name__ == '__main__':
               app.run(host='0.0.0.0', port=8080, debug=False)
           BASIC_WEB
@@ -745,7 +745,7 @@ jobs:
           BASIC_AIRPLAY
             chmod +x /usr/local/bin/airplay-receiver.py
           fi
-          
+
           if [ -f "/tmp/files/miracast-receiver.py" ]; then
             install -m 755 /tmp/files/miracast-receiver.py /usr/local/bin/
           else
@@ -759,7 +759,7 @@ jobs:
           BASIC_MIRACAST
             chmod +x /usr/local/bin/miracast-receiver.py
           fi
-          
+
           if [ -f "/tmp/files/dlna-server.py" ]; then
             install -m 755 /tmp/files/dlna-server.py /usr/local/bin/
           else
