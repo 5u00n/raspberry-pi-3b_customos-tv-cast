@@ -874,8 +874,11 @@ jobs:
 
           # Set up audio permissions
           usermod -a -G audio pi
-          usermod -a -G pulse pi
-          usermod -a -G pulse-access pi
+          # Create pulse groups if they don't exist
+          groupadd pulse 2>/dev/null || true
+          groupadd pulse-access 2>/dev/null || true
+          usermod -a -G pulse pi 2>/dev/null || true
+          usermod -a -G pulse-access pi 2>/dev/null || true
 
           EOFCHROOT
           CASTING
