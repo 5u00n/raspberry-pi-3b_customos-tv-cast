@@ -127,8 +127,22 @@ run_stage(){
 
 term() {
 	if [ "$?" -ne 0 ]; then
+		echo ""
+		echo "████████████████████████████████████████████████████████████████████████████████"
+		echo "███                                                                          ███"
+		echo "███  ❌ BUILD FAILED                                                         ███"
+		echo "███                                                                          ███"
+		echo "████████████████████████████████████████████████████████████████████████████████"
+		echo ""
 		log "Build failed"
 	else
+		echo ""
+		echo "████████████████████████████████████████████████████████████████████████████████"
+		echo "███                                                                          ███"
+		echo "███  ✅ BUILD FINISHED SUCCESSFULLY                                          ███"
+		echo "███                                                                          ███"
+		echo "████████████████████████████████████████████████████████████████████████████████"
+		echo ""
 		log "Build finished"
 	fi
 	unmount "${STAGE_WORK_DIR}"
@@ -312,10 +326,24 @@ if [[ "${PUBKEY_ONLY_SSH}" = "1" && -z "${PUBKEY_SSH_FIRST_USER}" ]]; then
 	exit 1
 fi
 
+echo ""
+echo "████████████████████████████████████████████████████████████████████████████████"
+echo "███                                                                          ███"
+echo "███  🚀 STARTING RASPBERRY PI OS IMAGE BUILD                                ███"
+echo "███                                                                          ███"
+echo "████████████████████████████████████████████████████████████████████████████████"
+echo ""
+
 log "Begin ${BASE_DIR}"
 
 STAGE_LIST=${STAGE_LIST:-${BASE_DIR}/stage*}
 export STAGE_LIST
+
+# Count stages for progress tracking
+STAGE_COUNT=$(echo $STAGE_LIST | wc -w)
+CURRENT_STAGE_NUM=0
+echo "📋 Total stages to build: $STAGE_COUNT"
+echo ""
 
 EXPORT_CONFIG_DIR=$(realpath "${EXPORT_CONFIG_DIR:-"${BASE_DIR}/export-image"}")
 if [ ! -d "${EXPORT_CONFIG_DIR}" ]; then
@@ -326,8 +354,26 @@ export EXPORT_CONFIG_DIR
 
 for STAGE_DIR in $STAGE_LIST; do
 	STAGE_DIR=$(realpath "${STAGE_DIR}")
+	CURRENT_STAGE_NUM=$((CURRENT_STAGE_NUM + 1))
+	
+	echo ""
+	echo "╔════════════════════════════════════════════════════════════════════════════╗"
+	echo "║                                                                            ║"
+	echo "║  🏗️  STAGE PROGRESS: [$CURRENT_STAGE_NUM/$STAGE_COUNT] - $(basename "$STAGE_DIR")                           ║"
+	echo "║                                                                            ║"
+	echo "╚════════════════════════════════════════════════════════════════════════════╝"
+	echo ""
+	
 	run_stage
 done
+
+echo ""
+echo "╔════════════════════════════════════════════════════════════════════════════╗"
+echo "║                                                                            ║"
+echo "║  📦 EXPORTING IMAGES                                                       ║"
+echo "║                                                                            ║"
+echo "╚════════════════════════════════════════════════════════════════════════════╝"
+echo ""
 
 CLEAN=1
 for EXPORT_DIR in ${EXPORT_DIRS}; do

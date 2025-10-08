@@ -1,5 +1,17 @@
 log (){
-	date +"[%T] $*" | tee -a "${LOG_FILE}"
+	local msg="$*"
+	local timestamp=$(date +"[%T]")
+	
+	# Enhanced visibility for Begin/End stage messages
+	if [[ "$msg" =~ ^Begin.*stage[0-9] ]] || [[ "$msg" =~ ^End.*stage[0-9] ]]; then
+		echo "" | tee -a "${LOG_FILE}"
+		echo "████████████████████████████████████████████████████████████████" | tee -a "${LOG_FILE}"
+		echo "███  $timestamp $msg" | tee -a "${LOG_FILE}"
+		echo "████████████████████████████████████████████████████████████████" | tee -a "${LOG_FILE}"
+		echo "" | tee -a "${LOG_FILE}"
+	else
+		echo "$timestamp $msg" | tee -a "${LOG_FILE}"
+	fi
 }
 export -f log
 
