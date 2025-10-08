@@ -155,6 +155,8 @@ sudo apt-get install -y \
     gpg \
     e2fsprogs \
     whois \
+    xxd \
+    vim-common \
     python3 \
     python3-pip
 
@@ -338,15 +340,26 @@ chmod +x stage2/99-custom-packages/00-run.sh
 log "Creating custom GUI configuration..."
 mkdir -p stage2/99-custom-gui/files
 
-# Copy Smart TV GUI file if exists
-if [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
+# Determine the base directory (go up one level from pi-gen)
+BASE_DIR="$(cd .. && pwd)"
+log "Looking for GUI files in: $BASE_DIR/overlays/"
+
+# Copy Smart TV GUI file if exists (prefer Smart TV version)
+if [ -f "$BASE_DIR/overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
+    cp "$BASE_DIR/overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" stage2/99-custom-gui/files/raspberry-pi-gui.py
+    log "✓ Smart TV GUI script copied from repository"
+elif [ -f "$BASE_DIR/overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
+    cp "$BASE_DIR/overlays/usr/local/bin/raspberry-pi-gui.py" stage2/99-custom-gui/files/
+    log "✓ Custom GUI script copied from repository"  
+elif [ -f "../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py" ]; then
     cp ../overlays/usr/local/bin/raspberry-pi-smart-tv-gui.py stage2/99-custom-gui/files/raspberry-pi-gui.py
     log "✓ Smart TV GUI script copied"
 elif [ -f "../overlays/usr/local/bin/raspberry-pi-gui.py" ]; then
     cp ../overlays/usr/local/bin/raspberry-pi-gui.py stage2/99-custom-gui/files/
     log "✓ Custom GUI script copied"
 else
-    warn "Custom GUI script not found, will create Smart TV version during build"
+    warn "Custom GUI script not found at $BASE_DIR/overlays/usr/local/bin/"
+    warn "Will create Smart TV interface during build"
 fi
 
 cat > stage2/99-custom-gui/00-run.sh << 'EOFGUI'
@@ -547,6 +560,20 @@ autologin-user-timeout=0
 LIGHTDM
 
 # Configure Samba
+mkdir -p /etc/samba
+
+# Check if smb.conf exists, create basic one if not
+if [ ! -f /etc/samba/smb.conf ]; then
+  cat > /etc/samba/smb.conf << 'SMBCONF'
+[global]
+   workgroup = WORKGROUP
+   server string = Raspberry Pi Custom OS
+   security = user
+   map to guest = Bad User
+SMBCONF
+fi
+
+# Append pi share configuration
 cat >> /etc/samba/smb.conf << 'SAMBA'
 
 [pi]
@@ -554,9 +581,16 @@ cat >> /etc/samba/smb.conf << 'SAMBA'
    browseable = yes
    read only = no
    guest ok = no
+   create mask = 0644
+   directory mask = 0755
+   valid users = pi
 SAMBA
 
-(echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
+# Set Samba password for pi user
+(echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s 2>/dev/null || true
+
+# Ensure smbd and nmbd are enabled
+systemctl enable smbd nmbd 2>/dev/null || systemctl enable samba-ad-dc 2>/dev/null || true
 
 chown -R 1000:1000 /home/pi/.config || true
 EOFCHROOT
