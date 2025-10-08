@@ -234,6 +234,20 @@ jobs:
           LIGHTDM
 
           # Configure Samba
+          mkdir -p /etc/samba
+          if [ ! -f /etc/samba/smb.conf ]; then
+            # Create basic Samba config if it doesn't exist
+            cat > /etc/samba/smb.conf << 'BASIC_SAMBA'
+          [global]
+          workgroup = WORKGROUP
+          server string = Raspberry Pi Custom OS
+          security = user
+          map to guest = Bad User
+          dns proxy = no
+          BASIC_SAMBA
+          fi
+          
+          # Add pi share to existing config
           cat >> /etc/samba/smb.conf << 'SAMBA'
 
           [pi]
