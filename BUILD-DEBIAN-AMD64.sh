@@ -45,7 +45,47 @@ info() {
 }
 
 step() {
-    echo -e "${BLUE}▶${NC} $1"
+    echo ""
+    echo ""
+    echo -e "${PURPLE}████████████████████████████████████████████████████████████████${NC}"
+    echo -e "${PURPLE}████████████████████████████████████████████████████████████████${NC}"
+    echo -e "${PURPLE}███${NC}                                                            ${PURPLE}███${NC}"
+    echo -e "${PURPLE}███${NC}  $1"
+    echo -e "${PURPLE}███${NC}                                                            ${PURPLE}███${NC}"
+    echo -e "${PURPLE}████████████████████████████████████████████████████████████████${NC}"
+    echo -e "${PURPLE}████████████████████████████████████████████████████████████████${NC}"
+    echo ""
+    echo ""
+}
+
+# Function to show progress
+show_progress() {
+    local current=$1
+    local total=$2
+    local step_name=$3
+    
+    echo ""
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                                                                ║${NC}"
+    echo -e "${CYAN}║     📊 PROGRESS: STEP $current OF $total                                   ║${NC}"
+    echo -e "${CYAN}║                                                                ║${NC}"
+    echo -e "${CYAN}║     ⏱️  CURRENT TASK: $step_name"
+    echo -e "${CYAN}║                                                                ║${NC}"
+    
+    # Calculate percentage
+    local percent=$((current * 100 / total))
+    local filled=$((current * 50 / total))
+    local empty=$((50 - filled))
+    
+    # Draw progress bar
+    echo -ne "${CYAN}║     ["
+    for ((i=0; i<filled; i++)); do echo -ne "█"; done
+    for ((i=0; i<empty; i++)); do echo -ne "░"; done
+    echo -e "] ${percent}%     ║${NC}"
+    echo -e "${CYAN}║                                                                ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
     echo ""
 }
 
@@ -100,27 +140,52 @@ check_disk_space() {
     log "✓ Disk space check passed: ${AVAILABLE}GB available"
 }
 
+# Function to print section separator
+section_separator() {
+    echo ""
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo ""
+}
+
 # Main script starts here
 print_header
 
-log "Starting build process..."
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                                                                  ║${NC}"
+echo -e "${GREEN}║          🚀 STARTING BUILD PROCESS - 6 STEPS TOTAL 🚀             ║${NC}"
+echo -e "${GREEN}║                                                                  ║${NC}"
+echo -e "${GREEN}║  This will take approximately 45-90 minutes to complete         ║${NC}"
+echo -e "${GREEN}║                                                                  ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 echo ""
 
 # Pre-flight checks
+show_progress 0 6 "Pre-flight checks"
 step "🔍 Step 0/6: Pre-flight checks"
 check_architecture
 check_os
 check_disk_space
 echo ""
 
+section_separator
+
 # Step 1: Free up disk space
+show_progress 1 6 "Freeing up disk space"
 step "🧹 Step 1/6: Freeing up disk space (optional)"
 log "Cleaning package cache..."
 sudo apt-get clean || true
 log "✓ Cleanup complete"
 echo ""
 
+section_separator
+
 # Step 2: Install dependencies
+show_progress 2 6 "Installing build dependencies"
 step "📦 Step 2/6: Installing build dependencies"
 log "This may take 5-10 minutes depending on your internet connection..."
 
@@ -209,23 +274,23 @@ fi
 log "✓ All critical dependencies verified!"
 echo ""
 
+section_separator
+
 # Step 3: Clone and setup pi-gen
+show_progress 3 6 "Setting up pi-gen build system"
 step "📥 Step 3/6: Setting up pi-gen build system"
 
+# Always start fresh - remove old pi-gen if exists
 if [ -d "pi-gen" ]; then
-    warn "pi-gen directory already exists"
-    read -p "Do you want to remove it and clone fresh? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log "Removing old pi-gen..."
-        sudo rm -rf pi-gen
-    else
-        error "Build cancelled. Please remove pi-gen directory manually or choose 'y' to remove."
-    fi
+    log "Removing existing pi-gen directory for fresh clone..."
+    sudo rm -rf pi-gen
+    log "✓ Old pi-gen removed"
 fi
 
-log "Cloning pi-gen repository..."
+log "Cloning fresh pi-gen repository..."
 git clone https://github.com/RPi-Distro/pi-gen.git
+log "✓ pi-gen cloned"
+
 cd pi-gen
 
 log "Checking out stable branch (bookworm)..."
@@ -234,7 +299,10 @@ git checkout 2024-07-04-raspios-bookworm || git checkout master
 log "✓ pi-gen setup complete!"
 echo ""
 
+section_separator
+
 # Step 4: Configure custom OS
+show_progress 4 6 "Configuring custom Raspberry Pi OS"
 step "⚙️  Step 4/6: Configuring custom Raspberry Pi OS"
 
 log "Cleaning previous builds..."
@@ -328,8 +396,8 @@ cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
 #!/bin/bash -e
 on_chroot << EOFCHROOT
 apt-get update
-apt-get upgrade -y
-pip3 install --break-system-packages flask flask-cors requests psutil || pip3 install flask flask-cors requests psutil
+# apt-get upgrade removed to speed up build - packages from repos are already current
+pip3 install --break-system-packages flask flask-cors requests psutil 2>/dev/null || pip3 install flask flask-cors requests psutil || true
 systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm
 systemctl set-default graphical.target
 EOFCHROOT
@@ -713,7 +781,10 @@ info "  ✓ WiFi tools"
 info "  ✓ Auto-login as 'pi'"
 echo ""
 
+section_separator
+
 # Step 5: Build the OS
+show_progress 5 6 "Building custom OS image (45-90 minutes)"
 step "🔨 Step 5/6: Building custom OS image"
 warn "This will take 45-90 minutes depending on your system"
 warn "You can monitor progress in another terminal with:"
@@ -726,7 +797,10 @@ sudo ./build.sh
 log "✓ Build completed successfully!"
 echo ""
 
+section_separator
+
 # Step 6: Show results
+show_progress 6 6 "Build complete!"
 step "📦 Step 6/6: Build complete!"
 
 cd deploy
