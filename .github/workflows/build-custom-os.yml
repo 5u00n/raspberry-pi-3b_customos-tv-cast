@@ -91,11 +91,10 @@ jobs:
                   # mate-desktop     # Uncomment for MATE desktop
 
                   # AirPlay and audio (core only)
-                  shairport-sync
                   avahi-daemon
                   pulseaudio
-                  # alsa-utils       # Uncomment for ALSA audio utilities
-                  # pulseaudio-utils # Uncomment for PulseAudio utilities
+                  pulseaudio-utils
+                  alsa-utils
                   # pavucontrol      # Uncomment for PulseAudio volume control GUI
 
                   # Network services
@@ -142,8 +141,62 @@ jobs:
                   on_chroot << EOFCHROOT
                   apt-get update
                   apt-get upgrade -y
+                  
+                  # Install shairport-sync separately to avoid conflicts
+                  apt-get install -y shairport-sync || {
+                    echo "Installing shairport-sync from source..."
+                    apt-get install -y build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+                    cd /tmp
+                    git clone https://github.com/mikebrady/shairport-sync.git
+                    cd shairport-sync
+                    autoreconf -i -f
+                    ./configure --with-alsa --with-avahi --with-ssl=openssl --with-soxr --with-systemd
+                    make
+                    make install
+                    systemctl enable shairport-sync
+                    cd /
+                    rm -rf /tmp/shairport-sync
+                  }
+                  
+                  # Configure PulseAudio for shairport-sync
+                  cat > /etc/pulse/default.pa << 'PULSEAUDIO'
+                  # Load the appropriate modules
+                  load-module module-device-restore
+                  load-module module-stream-restore
+                  load-module module-card-restore
+                  load-module module-augment-properties
+                  load-module module-switch-on-port-available
+                  
+                  # Load audio drivers statically
+                  load-module module-alsa-sink
+                  load-module module-alsa-source device=hw:1
+                  
+                  # Automatically load driver modules for hardware
+                  load-module module-udev-detect
+                  load-module module-udev-detect
+                  
+                  # Load the appropriate modules
+                  load-module module-native-protocol-unix
+                  load-module module-native-protocol-tcp
+                  load-module module-esound-protocol-unix
+                  load-module module-gconf
+                  load-module module-gsettings
+                  load-module module-default-device-restore
+                  load-module module-rescue-streams
+                  load-module module-always-sink
+                  load-module module-suspend-on-idle
+                  load-module module-console-kit
+                  load-module module-systemd-login
+                  load-module module-position-event-sounds
+                  load-module module-role-cork
+                  load-module module-snap-policy
+                  load-module module-filter-apply
+                  load-module module-filter-heuristics
+                  load-module module-cli-protocol-unix
+                  PULSEAUDIO
+                  
                   # Packages are already installed via apt, no need for pip3
-                  systemctl enable ssh shairport-sync avahi-daemon smbd nginx lightdm hostapd dnsmasq
+                  systemctl enable ssh avahi-daemon smbd nginx lightdm hostapd dnsmasq
                   systemctl set-default graphical.target
                   EOFCHROOT
                   EOFRUN
@@ -520,17 +573,19 @@ jobs:
                   ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
                   rm -f /etc/nginx/sites-enabled/default
 
-                  # Configure shairport-sync
+                  # Configure shairport-sync for PulseAudio
                   cat > /etc/shairport-sync.conf << 'SHAIRPORT'
                   general = {
                       name = "Raspberry Pi Custom OS";
-                      output_backend = "alsa";
-                      mixer_control_name = "PCM";
+                      output_backend = "pulseaudio";
+                      volume_range_db = 20;
+                      log_level = 1;
+                      log_verbosity = 1;
                   }
 
-                  alsa = {
-                      output_device = "hw:0";
-                      mixer_control_name = "PCM";
+                  pulseaudio = {
+                      server_name = "Raspberry Pi Custom OS";
+                      sink_name = "shairport-sync";
                   }
                   SHAIRPORT
 
@@ -888,21 +943,19 @@ jobs:
                   # Install casting packages
                   apt-get install -y python3-zeroconf python3-pychromecast || true
 
-                  # Configure enhanced shairport-sync
+                  # Configure enhanced shairport-sync for PulseAudio
                   cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
                   general = {
                       name = "Raspberry Pi Custom OS";
-                      output_backend = "alsa";
-                      mixer_control_name = "PCM";
+                      output_backend = "pulseaudio";
                       volume_range_db = 20;
                       log_level = 1;
                       log_verbosity = 1;
                   }
 
-                  alsa = {
-                      output_device = "hw:0";
-                      mixer_control_name = "PCM";
-                      mixer_device = "hw:0";
+                  pulseaudio = {
+                      server_name = "Raspberry Pi Custom OS";
+                      sink_name = "shairport-sync";
                   }
 
                   sessioncontrol = {
