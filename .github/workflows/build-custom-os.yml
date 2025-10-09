@@ -72,63 +72,34 @@ jobs:
                   python3-gi
                   python3-gi-cairo
                   gir1.2-gtk-3.0
-                  python3-psutil
-                  python3-requests
                   python3-flask
-                  python3-flask-cors
 
-                  # Desktop environment
+                  # Essential desktop (minimal)
                   xserver-xorg
-                  xinit
                   lightdm
-                  lxde-core
                   openbox
                   pcmanfm
-                  lxterminal
 
-                  # AirPlay and audio
+                  # AirPlay and audio (core only)
                   shairport-sync
                   avahi-daemon
-                  avahi-utils
-                  alsa-utils
                   pulseaudio
-                  pulseaudio-utils
 
-                  # Network discovery and services
-                  samba
-                  samba-common-bin
+                  # Essential network services
                   nginx
                   openssh-server
 
-                  # WiFi and networking
-                  iw
-                  wireless-tools
-                  hostapd
-                  dnsmasq
+                  # WiFi (minimal)
                   wpasupplicant
-                  net-tools
-                  iputils-ping
                   curl
-                  wget
 
-                  # Web browsers and media
-                  chromium-browser
-                  firefox-esr
-
-                  # Additional casting/streaming packages
+                  # Core media casting
                   vlc
                   ffmpeg
-                  youtube-dl
-                  nodejs
-                  npm
 
-                  # System utilities
-                  htop
+                  # Essential system tools
                   nano
-                  vim
                   git
-                  unzip
-                  zip
                   EOFPKG
 
                   cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
@@ -527,7 +498,7 @@ jobs:
                               
                               if 'url' in data:
                                   # Handle cast request
-                                  subprocess.Popen(['chromium-browser', '--kiosk', data['url']])
+                                  subprocess.Popen(['vlc', '--fullscreen', data['url']])
                               
                               self.send_response(200)
                               self.send_header('Content-type', 'application/json')
@@ -848,8 +819,8 @@ jobs:
                   mkdir -p /home/pi/Media
                   chown -R pi:pi /home/pi/Media
 
-                  # Install additional Python packages for casting (using apt instead of pip)
-                  apt-get install -y python3-pychromecast python3-zeroconf || true
+                  # Install minimal casting packages
+                  apt-get install -y python3-zeroconf || true
 
                   # Configure enhanced shairport-sync
                   cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
