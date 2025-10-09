@@ -102,6 +102,7 @@ jobs:
                   openssh-server
                   samba
                   samba-common-bin
+                  samba-common
                   # samba-common     # Uncomment if you need additional Samba features
 
                   # WiFi and networking essentials
@@ -316,9 +317,18 @@ jobs:
                      guest ok = no
                   SAMBA
 
-                  (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
+                  # Set up Samba user password
+                  if command -v smbpasswd >/dev/null 2>&1; then
+                    (echo "raspberry"; echo "raspberry") | smbpasswd -a pi -s || true
+                  else
+                    echo "smbpasswd not found, creating Samba user manually"
+                    echo -e "raspberry\nraspberry" | smbpasswd -a pi 2>/dev/null || {
+                      echo "Manual Samba user creation failed, continuing..."
+                    }
+                  fi
 
                   # Configure WiFi hotspot
+                  mkdir -p /etc/hostapd
                   cat > /etc/hostapd/hostapd.conf << 'HOSTAPD'
                   interface=wlan0
                   driver=nl80211
@@ -940,8 +950,8 @@ jobs:
                   mkdir -p /home/pi/Media
                   chown -R pi:pi /home/pi/Media
 
-                  # Install casting packages
-                  apt-get install -y python3-zeroconf python3-pychromecast || true
+                  # Install casting packages and missing dependencies
+                  apt-get install -y python3-zeroconf python3-pychromecast samba-common || true
 
                   # Configure enhanced shairport-sync for PulseAudio
                   cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
