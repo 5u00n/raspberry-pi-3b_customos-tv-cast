@@ -166,7 +166,7 @@ jobs:
                       echo "dnsmasq installation failed, continuing without DHCP server"
                     }
                   }
-                  
+
                   # Install pulseaudio separately to avoid conflicts
                   apt-get install -y pulseaudio pulseaudio-utils || {
                     echo "Installing pulseaudio from alternative source..."
@@ -184,15 +184,15 @@ jobs:
                   load-module module-card-restore
                   load-module module-augment-properties
                   load-module module-switch-on-port-available
-                  
+
                   # Load audio drivers statically
                   load-module module-alsa-sink
                   load-module module-alsa-source device=hw:1
-                  
+
                   # Automatically load driver modules for hardware
                   load-module module-udev-detect
                   load-module module-udev-detect
-                  
+
                   # Load the appropriate modules
                   load-module module-native-protocol-unix
                   load-module module-native-protocol-tcp
