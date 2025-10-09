@@ -158,7 +158,7 @@ jobs:
                     cd /
                     rm -rf /tmp/shairport-sync
                   }
-                  
+
                   # Install dnsmasq separately to avoid conflicts
                   apt-get install -y dnsmasq || {
                     echo "Installing dnsmasq from alternative source..."
