@@ -223,7 +223,33 @@ sudo apt-get install -y \
     xxd \
     vim-common \
     python3 \
-    python3-pip
+    python3-pip \
+    # Additional optional packages (uncomment if needed):
+    # htop              # Process monitor
+    # nano              # Text editor (alternative to vim)
+    # wget              # Download tool
+    # tree              # Directory tree viewer
+    # jq                # JSON processor
+    # build-essential   # Compilation tools
+    # cmake             # Build system
+    # pkg-config        # Package configuration
+    # libssl-dev        # SSL development libraries
+    # zlib1g-dev        # Compression library
+    # libffi-dev        # Foreign Function Interface
+    # libbz2-dev        # Bzip2 compression
+    # libreadline-dev   # Readline library
+    # libsqlite3-dev    # SQLite development
+    # libncurses5-dev   # Terminal interface
+    # libncursesw5-dev  # Wide character terminal
+    # tk-dev            # Tk GUI toolkit
+    # libxml2-dev       # XML library
+    # libxmlsec1-dev    # XML security
+    # libffi-dev        # Foreign Function Interface
+    # liblzma-dev       # LZMA compression
+    # python3-dev       # Python development headers
+    # python3-venv      # Python virtual environments
+    # python3-setuptools # Python setuptools
+    # python3-wheel     # Python wheel package
 
 # Install optional packages (may not be available on all systems)
 log "Installing optional compression tools..."

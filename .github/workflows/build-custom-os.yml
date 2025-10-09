@@ -76,23 +76,34 @@ jobs:
                   python3-flask-cors
                   python3-psutil
                   python3-requests
+                  # python3-setuptools # Uncomment if you need setuptools
+                  # python3-wheel     # Uncomment if you need wheel for package building
+                  # python3-dev       # Uncomment if you need Python development headers
 
                   # Essential desktop (minimal)
                   xserver-xorg
                   lightdm
                   openbox
                   pcmanfm
+                  # lxde-core        # Uncomment for full LXDE desktop
+                  # lxterminal       # Uncomment for LXDE terminal
+                  # xfce4            # Uncomment for XFCE desktop
+                  # mate-desktop     # Uncomment for MATE desktop
 
                   # AirPlay and audio (core only)
                   shairport-sync
                   avahi-daemon
                   pulseaudio
+                  # alsa-utils       # Uncomment for ALSA audio utilities
+                  # pulseaudio-utils # Uncomment for PulseAudio utilities
+                  # pavucontrol      # Uncomment for PulseAudio volume control GUI
 
                   # Network services
                   nginx
                   openssh-server
                   samba
                   samba-common-bin
+                  # samba-common     # Uncomment if you need additional Samba features
 
                   # WiFi and networking essentials
                   wpasupplicant
@@ -104,12 +115,17 @@ jobs:
                   iputils-ping
                   curl
                   wget
+                  # iptables         # Uncomment if you need firewall management
+                  # ufw              # Uncomment if you need Uncomplicated Firewall
 
                   # Web browser and media
                   firefox-esr
                   vlc
                   ffmpeg
                   youtube-dl
+                  # chromium-browser  # Uncomment if you need Chrome/Chromium
+                  # nodejs            # Uncomment if you need Node.js
+                  # npm               # Uncomment if you need npm packages
 
                   # System monitoring and tools
                   htop
@@ -117,6 +133,8 @@ jobs:
                   git
                   unzip
                   zip
+                  # vim               # Uncomment if you prefer vim over nano
+                  # htop              # Uncomment if you need advanced process monitoring
                   EOFPKG
 
                   cat > stage2/99-custom-packages/00-run.sh << 'EOFRUN'
