@@ -92,8 +92,8 @@ jobs:
 
                   # AirPlay and audio (core only)
                   avahi-daemon
-                  pulseaudio
-                  pulseaudio-utils
+                  # pulseaudio        # Install separately to avoid conflicts
+                  # pulseaudio-utils  # Install separately to avoid conflicts
                   alsa-utils
                   # pavucontrol      # Uncomment for PulseAudio volume control GUI
 
@@ -166,24 +166,33 @@ jobs:
                       echo "dnsmasq installation failed, continuing without DHCP server"
                     }
                   }
+                  
+                  # Install pulseaudio separately to avoid conflicts
+                  apt-get install -y pulseaudio pulseaudio-utils || {
+                    echo "Installing pulseaudio from alternative source..."
+                    apt-get install -y pulseaudio-module-alsa pulseaudio-module-bluetooth || {
+                      echo "pulseaudio installation failed, continuing with ALSA only"
+                    }
+                  }
 
-                  # Configure PulseAudio for shairport-sync
-                  cat > /etc/pulse/default.pa << 'PULSEAUDIO'
+                  # Configure PulseAudio for shairport-sync (if available)
+                  if command -v pulseaudio >/dev/null 2>&1; then
+                    cat > /etc/pulse/default.pa << 'PULSEAUDIO'
                   # Load the appropriate modules
                   load-module module-device-restore
                   load-module module-stream-restore
                   load-module module-card-restore
                   load-module module-augment-properties
                   load-module module-switch-on-port-available
-
+                  
                   # Load audio drivers statically
                   load-module module-alsa-sink
                   load-module module-alsa-source device=hw:1
-
+                  
                   # Automatically load driver modules for hardware
                   load-module module-udev-detect
                   load-module module-udev-detect
-
+                  
                   # Load the appropriate modules
                   load-module module-native-protocol-unix
                   load-module module-native-protocol-tcp
@@ -203,6 +212,9 @@ jobs:
                   load-module module-filter-heuristics
                   load-module module-cli-protocol-unix
                   PULSEAUDIO
+                  else
+                    echo "PulseAudio not available, using ALSA configuration"
+                  fi
 
                   # Packages are already installed via apt, no need for pip3
                   systemctl enable ssh avahi-daemon smbd nginx lightdm hostapd
@@ -601,8 +613,9 @@ jobs:
                   ln -sf /etc/nginx/sites-available/web-dashboard /etc/nginx/sites-enabled/
                   rm -f /etc/nginx/sites-enabled/default
 
-                  # Configure shairport-sync for PulseAudio
-                  cat > /etc/shairport-sync.conf << 'SHAIRPORT'
+                  # Configure shairport-sync for PulseAudio or ALSA fallback
+                  if command -v pulseaudio >/dev/null 2>&1; then
+                    cat > /etc/shairport-sync.conf << 'SHAIRPORT'
                   general = {
                       name = "Raspberry Pi Custom OS";
                       output_backend = "pulseaudio";
@@ -616,6 +629,23 @@ jobs:
                       sink_name = "shairport-sync";
                   }
                   SHAIRPORT
+                  else
+                    cat > /etc/shairport-sync.conf << 'SHAIRPORT'
+                  general = {
+                      name = "Raspberry Pi Custom OS";
+                      output_backend = "alsa";
+                      mixer_control_name = "PCM";
+                      volume_range_db = 20;
+                      log_level = 1;
+                      log_verbosity = 1;
+                  }
+
+                  alsa = {
+                      output_device = "hw:0";
+                      mixer_control_name = "PCM";
+                  }
+                  SHAIRPORT
+                  fi
 
                   # Create Google Cast service
                   cat > /usr/local/bin/google-cast-server.py << 'CASTSERVER'
@@ -971,8 +1001,9 @@ jobs:
                   # Install casting packages and missing dependencies
                   apt-get install -y python3-zeroconf python3-pychromecast samba-common || true
 
-                  # Configure enhanced shairport-sync for PulseAudio
-                  cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
+                  # Configure enhanced shairport-sync for PulseAudio or ALSA fallback
+                  if command -v pulseaudio >/dev/null 2>&1; then
+                    cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
                   general = {
                       name = "Raspberry Pi Custom OS";
                       output_backend = "pulseaudio";
@@ -990,6 +1021,28 @@ jobs:
                       session_timeout = 20;
                   }
                   ENHANCED_SHAIRPORT
+                  else
+                    cat > /etc/shairport-sync.conf << 'ENHANCED_SHAIRPORT'
+                  general = {
+                      name = "Raspberry Pi Custom OS";
+                      output_backend = "alsa";
+                      mixer_control_name = "PCM";
+                      volume_range_db = 20;
+                      log_level = 1;
+                      log_verbosity = 1;
+                  }
+
+                  alsa = {
+                      output_device = "hw:0";
+                      mixer_control_name = "PCM";
+                      mixer_device = "hw:0";
+                  }
+
+                  sessioncontrol = {
+                      session_timeout = 20;
+                  }
+                  ENHANCED_SHAIRPORT
+                  fi
 
                   # Configure PulseAudio for better audio
                   mkdir -p /etc/pulse
