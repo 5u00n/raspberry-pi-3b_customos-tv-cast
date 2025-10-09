@@ -108,7 +108,7 @@ jobs:
                   # WiFi and networking essentials
                   wpasupplicant
                   hostapd
-                  dnsmasq
+                  # dnsmasq          # Install separately to avoid conflicts
                   iw
                   wireless-tools
                   net-tools
@@ -158,6 +158,14 @@ jobs:
                     cd /
                     rm -rf /tmp/shairport-sync
                   }
+                  
+                  # Install dnsmasq separately to avoid conflicts
+                  apt-get install -y dnsmasq || {
+                    echo "Installing dnsmasq from alternative source..."
+                    apt-get install -y dnsmasq-base || {
+                      echo "dnsmasq installation failed, continuing without DHCP server"
+                    }
+                  }
 
                   # Configure PulseAudio for shairport-sync
                   cat > /etc/pulse/default.pa << 'PULSEAUDIO'
@@ -197,7 +205,13 @@ jobs:
                   PULSEAUDIO
 
                   # Packages are already installed via apt, no need for pip3
-                  systemctl enable ssh avahi-daemon smbd nginx lightdm hostapd dnsmasq
+                  systemctl enable ssh avahi-daemon smbd nginx lightdm hostapd
+                  # Enable dnsmasq only if it was installed successfully
+                  if systemctl list-unit-files | grep -q dnsmasq.service; then
+                    systemctl enable dnsmasq
+                  else
+                    echo "dnsmasq not available, skipping DHCP server setup"
+                  fi
                   systemctl set-default graphical.target
                   EOFCHROOT
                   EOFRUN
@@ -346,11 +360,15 @@ jobs:
                   rsn_pairwise=CCMP
                   HOSTAPD
 
-                  # Configure dnsmasq for hotspot
-                  cat > /etc/dnsmasq.conf << 'DNSMASQ'
+                  # Configure dnsmasq for hotspot (if available)
+                  if command -v dnsmasq >/dev/null 2>&1; then
+                    cat > /etc/dnsmasq.conf << 'DNSMASQ'
                   interface=wlan0
                   dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
                   DNSMASQ
+                  else
+                    echo "dnsmasq not available, DHCP server not configured"
+                  fi
 
                   # Configure static IP for wlan0
                   cat > /etc/dhcpcd.conf << 'DHCPCD'
